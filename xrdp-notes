@@ -167,3 +167,17 @@ Client (Windows App on Android), set by hand:
 Verify after restart:
   ps -o pid,ni,comm -C xrdp,Xorg,xrdp-chansrv,plasmashell   # -10 / -5 / -5 / 0
   tc qdisc show dev eth0 | head -1                            # fq
+
+Ugly pass: looks traded for latency (2026-09-23)
+================================================
+Script: ~/xrdp-tune/xrdp-ugly.sh (sudo, no restart). Backup /etc/xrdp/xrdp.ini.pre-ugly.
+Colour depth is not touched: below 32 bpp GFX turns off, which is slower.
+  - new_cursors=false: legacy 16-colour cursor shapes, smaller updates. Needs xrdp restart.
+  - Breeze Dark flat theme, Fusion widget style, no window border, no shadows, no title
+    gradient, solid-colour wallpaper. RFX compresses flat regions far better than gradients.
+  - Fonts: antialias off, hintfull, no subpixel, also via ~/.config/fontconfig/fonts.conf
+    so GTK/Chrome follow. 1-bit glyphs compress best.
+  - Cursor breeze_cursors 24 px. Panel clock without seconds. Notifications: Do Not Disturb
+    until 9999, sounds off. Each popup or tick is a frame.
+Manual: client resolution 1024x640 (biggest win), Chrome reduce motion + force dark,
+VS Code minimap off. Rollback in the script's last lines.
