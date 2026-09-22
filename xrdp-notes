@@ -175,7 +175,7 @@ Colour depth is not touched: below 32 bpp GFX turns off, which is slower.
   - new_cursors=false: legacy 16-colour cursor shapes, smaller updates. Needs xrdp restart.
   - Breeze Dark flat theme, Breeze widget style (Fusion looked off in colour), no window border, no shadows, no title
     gradient, solid black wallpaper (org.kde.color default is blue, so Color=0,0,0 is set). RFX compresses flat regions far better than gradients.
-  - Fonts: antialias on (off was unreadably rough), hintfull, no subpixel, also via ~/.config/fontconfig/fonts.conf
+  - Fonts: antialias on (off was unreadably rough), hintfull, subpixel rgb, also via ~/.config/fontconfig/fonts.conf
     so GTK/Chrome follow. 1-bit glyphs compress best.
   - Cursor breeze_cursors 24 px. Panel clock without seconds. Notifications: Do Not Disturb
     until 9999, sounds off. Each popup or tick is a frame.

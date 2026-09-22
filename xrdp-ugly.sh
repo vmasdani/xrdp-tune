@@ -48,10 +48,10 @@ if [ -f "$APPLETS" ]; then
   done
 fi
 
-echo "== Fonts: antialias on (off looks too rough), full hinting, no subpixel"
+echo "== Fonts: antialias on (off looks too rough), full hinting, subpixel rgb"
 kw --file kdeglobals --group General --key XftAntialias true
 kw --file kdeglobals --group General --key XftHintStyle hintfull
-kw --file kdeglobals --group General --key XftSubPixel none
+kw --file kdeglobals --group General --key XftSubPixel rgb
 FC_DIR="$USER_HOME/.config/fontconfig"
 mkdir -p "$FC_DIR"
 cat > "$FC_DIR/fonts.conf" <<'XML'
@@ -61,7 +61,7 @@ cat > "$FC_DIR/fonts.conf" <<'XML'
   <match target="font"><edit name="antialias" mode="assign"><bool>true</bool></edit></match>
   <match target="font"><edit name="hinting" mode="assign"><bool>true</bool></edit></match>
   <match target="font"><edit name="hintstyle" mode="assign"><const>hintfull</const></edit></match>
-  <match target="font"><edit name="rgba" mode="assign"><const>none</const></edit></match>
+  <match target="font"><edit name="rgba" mode="assign"><const>rgb</const></edit></match>
 </fontconfig>
 XML
 chown -R "$DESKTOP_USER:" "$FC_DIR"

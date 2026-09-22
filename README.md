@@ -43,7 +43,7 @@ Takes a while: it builds xrdp and xorgxrdp.
 | Script | What it does | Restarts xrdp |
 |---|---|---|
 | `install.sh` | All of the below, one start at the end | yes |
-| `xrdp-ugly.sh` | Looks for latency: Breeze Dark flat theme, solid black wallpaper, no window borders/shadows, fonts antialiased with hintfull, no subpixel, plain 24 px cursor, legacy RDP cursors, no clock seconds, notifications off | never |
+| `xrdp-ugly.sh` | Looks for latency: Breeze Dark flat theme, solid black wallpaper, no window borders/shadows, fonts antialiased with hintfull and subpixel rgb, plain 24 px cursor, legacy RDP cursors, no clock seconds, notifications off | never |
 | `xrdp-setup.sh` | Plasma + apps, xrdp 0.10.6.1 + xorgxrdp 0.10.5 from source, GFX (32 bpp), 4 MB TCP buffers, H.264 bitrate cap, startwm.sh, `.xsession`, KDE compositing/animations off | yes, unless `NO_RESTART=1` |
 | `xrdp-snappy.sh` | BBR, `tcp_notsent_lowat`, no slow start after idle, 60 fps frame interval | yes, unless `NO_RESTART=1` |
 | `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off | never |
