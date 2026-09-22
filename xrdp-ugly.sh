@@ -1,8 +1,8 @@
 #!/bin/bash
 # Trade looks for latency: flat dark theme, black wallpaper, plain cursor, quiet panel,
-# no notifications, legacy RDP cursors. Colour depth stays 32 bpp (GFX needs it).
+# no notifications. Colour depth stays 32 bpp (GFX needs it).
 # Run: sudo ./xrdp-ugly.sh [desktop-user]
-# Never restarts xrdp. KDE parts apply at next Plasma login; new_cursors after xrdp restart.
+# Never restarts xrdp. KDE parts apply at next Plasma login.
 # Manual, biggest wins (see README): client resolution 1024x640, Chrome/VS Code flags.
 set -euo pipefail
 
@@ -18,9 +18,9 @@ fi
 USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 kw() { sudo -u "$DESKTOP_USER" HOME="$USER_HOME" kwriteconfig5 "$@"; }
 
-echo "== xrdp.ini: legacy 16-colour cursors (smaller cursor updates)"
+echo "== xrdp.ini: keep new_cursors=true (legacy 1-bit cursors make alpha Breeze shapes vanish)"
 cp -n /etc/xrdp/xrdp.ini /etc/xrdp/xrdp.ini.pre-ugly
-sed -i -E 's/^new_cursors=.*/new_cursors=false/' /etc/xrdp/xrdp.ini
+sed -i -E 's/^new_cursors=.*/new_cursors=true/' /etc/xrdp/xrdp.ini
 
 echo "== Flat dark theme, solid black wallpaper, no icon effects"
 kw --file kdeglobals --group General --key ColorScheme BreezeDark
@@ -80,7 +80,6 @@ kw --file knotifyrc --group Sounds --key Use false
 kw --file kdeglobals --group Sounds --key Enable false
 
 echo
-echo "Done. Re-login to Plasma to apply. new_cursors applies after the next xrdp restart"
-echo "(log out of RDP first): sudo systemctl restart xrdp"
+echo "Done. Re-login to Plasma to apply."
 echo "Rollback: /etc/xrdp/xrdp.ini.pre-ugly; KDE: System Settings > Appearance > Breeze,"
 echo "delete ~/.config/fontconfig/fonts.conf, Do Not Disturb off."

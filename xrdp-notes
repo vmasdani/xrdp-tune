@@ -172,7 +172,7 @@ Ugly pass: looks traded for latency (2026-09-23)
 ================================================
 Script: ~/xrdp-tune/xrdp-ugly.sh (sudo, no restart). Backup /etc/xrdp/xrdp.ini.pre-ugly.
 Colour depth is not touched: below 32 bpp GFX turns off, which is slower.
-  - new_cursors=false: legacy 16-colour cursor shapes, smaller updates. Needs xrdp restart.
+  - new_cursors stays true. false (legacy 1-bit masks) made alpha Breeze cursors vanish often.
   - Breeze Dark flat theme, Breeze widget style (Fusion looked off in colour), no window border, no shadows, no title
     gradient, solid black wallpaper (org.kde.color default is blue, so Color=0,0,0 is set). RFX compresses flat regions far better than gradients.
   - Fonts: antialias on (off was unreadably rough), hintfull, subpixel rgb, also via ~/.config/fontconfig/fonts.conf
