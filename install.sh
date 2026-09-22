@@ -4,6 +4,7 @@
 #   xrdp-snappy.sh  BBR, notsent_lowat, 60 fps frame interval
 #   xrdp-lean.sh    channels, priority, fq, TLS, logging, KDE trims (frame interval 8 ms)
 #   xrdp-ugly.sh    looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
+#   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
 # then one xrdp start at the end.
 #
 # Usage: sudo ./install.sh [desktop-user]
@@ -21,6 +22,7 @@ export NO_RESTART=1
 ./xrdp-snappy.sh
 ./xrdp-lean.sh "$DESKTOP_USER"
 ./xrdp-ugly.sh "$DESKTOP_USER"
+./xrdp-flameshot.sh "$DESKTOP_USER"
 
 echo "== Starting xrdp"
 systemctl daemon-reload
