@@ -122,6 +122,12 @@ The shortcut is stored as a Plasma "custom command" (`~/.local/share/application
 plus a `[flameshot.desktop]` group in `~/.config/kglobalshortcutsrc`). Run the script while
 logged out of RDP; a running session rewrites that file on logout.
 
+## Browser access (H.264)
+
+`xpra/xpra-shadow.sh` mirrors the running xrdp desktop to a browser tab over H.264 with
+xpra's HTML5 client, next to xrdp. **Tried and not worth it:** noticeably laggier than xrdp
+RFX on a GPU-less VPS. Kept as a record; reasons in [xpra/README.md](xpra/README.md).
+
 ## Notes
 
 `xrdp-notes` holds the full history: what each change does, why, and how to roll it back.
