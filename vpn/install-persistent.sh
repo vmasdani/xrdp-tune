@@ -57,11 +57,25 @@ patch_into() {
     # Comment out any full-tunnel directive in the copy.
     sed -i -E 's/^([[:space:]]*)(redirect-gateway[[:space:]].*)$/\1#\2/' "$out"
 
+    # Bake in who to route, readable by the hook scripts at connect time.
+    if [ -n "$RUN_USER" ] && [ "$RUN_USER" != "root" ]; then
+        add_line "setenv VPN_SPLIT_USER $RUN_USER"
+    fi
     add_line "script-security 2"
     add_line "route-up $UP"
     add_line "down $DOWN"
     add_line 'pull-filter ignore "redirect-gateway"'
 }
+
+# Resolve the user to bake into each profile, so the connect hook knows who to
+# route even though OpenVPN scrubs its environment. Prefer the human behind
+# sudo, then the current login. Can be overridden per profile by setting
+# VPN_USER in vpn-split.conf.
+RUN_USER="${SUDO_USER:-${USER:-}}"
+if [ -z "$RUN_USER" ] || [ "$RUN_USER" = "root" ]; then
+    echo "Warning: could not resolve a non-root user to bake in." >&2
+    echo "Set VPN_USER in vpn-split.conf, or the profiles will need it at run time." >&2
+fi
 
 echo "Scripts referenced:"
 echo "  route-up $UP"

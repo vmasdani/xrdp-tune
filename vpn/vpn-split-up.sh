@@ -14,13 +14,16 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$DIR/vpn-split.conf"
 
-# Resolve which user to route. Empty VPN_USER means auto-detect the human
-# behind the command: prefer $SUDO_USER, then $USER. Refuse root.
+# Resolve which user to route (safe under 'set -u'). Priority:
+#   1. VPN_USER set in vpn-split.conf
+#   2. VPN_SPLIT_USER exported by the .ovpn via 'setenv' (persistent hook)
+#   3. SUDO_USER (the human behind sudo, for manual runs)
+#   4. USER
 if [ -z "${VPN_USER:-}" ]; then
-    VPN_USER="${SUDO_USER:-$USER}"
+    VPN_USER="${VPN_SPLIT_USER:-${SUDO_USER:-${USER:-}}}"
 fi
 if [ -z "$VPN_USER" ] || [ "$VPN_USER" = "root" ]; then
-    echo "Refusing to route user '$VPN_USER'. Set VPN_USER in vpn-split.conf to a real login name." >&2
+    echo "Cannot resolve a non-root user to route. Set VPN_USER in vpn-split.conf." >&2
     exit 1
 fi
 
