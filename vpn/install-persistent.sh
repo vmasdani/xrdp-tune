@@ -2,16 +2,18 @@
 #
 # install-persistent.sh -- make the split VPN apply automatically.
 #
-# Patch OpenVPN profiles so the routing rules are installed every time the
-# tunnel connects and removed when it disconnects. After this, you never run
-# vpn-split-up.sh by hand for those profiles.
+# For each OpenVPN profile it patches, it writes a split-tunnel copy named
+# <name>.split.ovpn (with the routing hooks and any redirect-gateway commented
+# out), then RENAMES the original to bak.<name>.ovpn. The plain <name>.ovpn no
+# longer exists afterwards, so you cannot accidentally start the non-split
+# version with `sudo openvpn --config <name>.ovpn`.
 #
-# With no arguments, it patches every *.ovpn file in this directory and writes
-# a patched copy named <name>.split.ovpn next to it (the original is left
-# untouched). Pass explicit paths to patch only those instead.
+# With no arguments it processes every plain *.ovpn in this directory, skipping
+# files it already produced (bak.*.ovpn) or generated (*.split.ovpn), so it is
+# safe to re-run. Pass explicit paths to process only those.
 #
 # Usage:
-#   ./install-persistent.sh                 # all *.ovpn in this folder
+#   ./install-persistent.sh                 # all plain *.ovpn here
 #   ./install-persistent.sh a.ovpn b.ovpn   # only these
 #
 set -euo pipefail
@@ -27,8 +29,10 @@ if [ "$#" -gt 0 ]; then
 else
     shopt -s nullglob
     for f in "$DIR"/*.ovpn; do
-        # Skip files this script produced, so re-running is safe.
-        case "$f" in
+        base="$(basename "$f")"
+        # Skip our own backups and generated split copies.
+        case "$base" in
+            bak.*.ovpn)   continue ;;
             *.split.ovpn) continue ;;
         esac
         SRC+=("$f")
@@ -37,30 +41,25 @@ else
 fi
 
 if [ "${#SRC[@]}" -eq 0 ]; then
-    echo "No .ovpn files found in $DIR" >&2
+    echo "No plain .ovpn files to process in $DIR" >&2
     exit 1
 fi
 
-patch_one() {
+patch_into() {
+    # patch_into <source> <output>
     local src="$1" out="$2"
     cp "$src" "$out"
 
     add_line() {
-        # Append a directive only if it is not present already.
         grep -qF -- "$1" "$out" || printf '%s\n' "$1" >> "$out"
     }
 
-    # Neutralise any full-tunnel line: comment it out in the copy so it cannot
-    # hijack the default route and lock out SSH.
+    # Comment out any full-tunnel directive in the copy.
     sed -i -E 's/^([[:space:]]*)(redirect-gateway[[:space:]].*)$/\1#\2/' "$out"
 
-    # script-security 2 lets OpenVPN run our helper scripts.
     add_line "script-security 2"
-    # route-up runs after the tunnel routes are in place.
     add_line "route-up $UP"
-    # down runs on disconnect to clean the rules up.
     add_line "down $DOWN"
-    # Ignore any server push that would grab the whole default route.
     add_line 'pull-filter ignore "redirect-gateway"'
 }
 
@@ -74,14 +73,32 @@ for src in "${SRC[@]}"; do
         echo "skip (not found): $src" >&2
         continue
     fi
-    # Output name: strip a trailing .ovpn, add .split.ovpn, keep it in DIR.
     base="$(basename "$src")"
-    base="${base%.ovpn}"
-    out="$DIR/$base.split.ovpn"
-    patch_one "$src" "$out"
-    echo "patched: $src  ->  $out"
+
+    # Refuse to process a backup or an already-split file even if named on the
+    # command line, so we never double-edit.
+    case "$base" in
+        bak.*.ovpn|*.split.ovpn)
+            echo "skip (already processed): $base" >&2
+            continue ;;
+    esac
+
+    name="${base%.ovpn}"
+    srcdir="$(cd "$(dirname "$src")" && pwd)"
+    out="$srcdir/$name.split.ovpn"
+    bak="$srcdir/bak.$name.ovpn"
+
+    if [ -e "$bak" ]; then
+        echo "skip ($(basename "$bak") already exists): $base" >&2
+        continue
+    fi
+
+    patch_into "$src" "$out"
+    mv "$src" "$bak"
+    echo "patched: $base  ->  $(basename "$out")"
+    echo "  original moved to: $(basename "$bak")"
 done
 
 echo
-echo "Run a patched profile as root so the hooks have permission:"
+echo "Run a patched profile as root:"
 echo "  sudo openvpn --config $DIR/<name>.split.ovpn"

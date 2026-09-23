@@ -69,8 +69,14 @@ Create the dedicated user once:
 sudo useradd -m vpnuser
 ```
 
-Then set `VPN_USER` in `vpn-split.conf` to that name (default: `vpnuser`), and
-`VPN_DEV` to your tunnel interface (default: `tun0`).
+Then choose who to route in `vpn-split.conf`:
+
+- Leave `VPN_USER=""` (the default) to **auto-detect** the human running the
+  command. The scripts use `$SUDO_USER` (the user behind `sudo`) and fall back
+  to `$USER`. They refuse to route `root`.
+- Or set `VPN_USER` to a fixed name such as `vpnuser` for a dedicated account.
+
+Set `VPN_DEV` to your tunnel interface if it is not `tun0`.
 
 ## Non-persistent use (rules gone after reboot or VPN restart)
 
@@ -86,6 +92,17 @@ Remove them again with:
 
 ```
 sudo ~/xrdp-tune/vpn/vpn-split-down.sh
+```
+
+## Keeping the VPN connected
+
+`openvpn` runs in the foreground and stays connected until you stop it with
+Ctrl-C. Do **not** wrap it in `timeout` except for a quick test; `timeout 10`
+disconnects after ten seconds by design. To keep it running after you log out,
+start it detached, for example inside `tmux`/`screen`, or:
+
+```
+sudo nohup openvpn --config ~/xrdp-tune/vpn/<name>.split.ovpn >/tmp/ovpn.log 2>&1 &
 ```
 
 ## Persistent use (rules apply automatically on every connect)
