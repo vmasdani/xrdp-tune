@@ -1,0 +1,8 @@
+# editor and backup files
+*.swp
+*.swo
+*~
+# ovpn profiles and the installer's backups: never commit real credentials/IPs
+*.ovpn
+*.ovpn.orig
+*.ovpn.bak
