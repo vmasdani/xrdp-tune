@@ -60,6 +60,7 @@ address, one of the three points above is missing.
 | `vpn-split-up.sh`       | apply the routing rules (non-persistent, run by hand)|
 | `vpn-split-down.sh`     | remove the routing rules                             |
 | `install-persistent.sh` | patch a `.ovpn` so the rules apply on every connect  |
+| `install-persistent-wg.sh` | patch a WireGuard `.conf` the same way           |
 
 ## One-time setup
 
@@ -160,6 +161,54 @@ before using that profile with this split setup.
   across reboot on their own. Use the persistent installer (which re-applies
   them on every VPN connect) rather than trying to save firewall state.
 - Only one VPN profile should be active at a time.
+
+## WireGuard
+
+A WireGuard client profile with `AllowedIPs = 0.0.0.0/0` is the WireGuard form
+of `redirect-gateway`: `wg-quick` adds a policy rule that sends every packet
+except its own into the tunnel, so the SSH and RDP sessions you are connected
+through freeze the moment it comes up. `install-persistent-wg.sh` patches a
+profile so it behaves like a `.split.ovpn` instead:
+
+```
+~/xrdp-tune/vpn/install-persistent-wg.sh                        # all *.conf here
+~/xrdp-tune/vpn/install-persistent-wg.sh ~/Downloads/biker.conf # or only these
+```
+
+For each profile it writes `<name>.split.conf` (mode 600) and renames the
+original to `bak.<name>.conf`. The copy gets:
+
+- `Table = off`, so `wg-quick` adds no routes or policy rules of its own.
+- A `PostUp` route for the VPN's own range (`10.8.0.0/16` by default, set
+  `WG_ROUTES` to change it), so every user can reach the other peers.
+- `PostUp` / `PreDown` hooks that run `vpn-split-up.sh` / `vpn-split-down.sh`
+  with the WireGuard interface, the user who ran the installer, and mark `0x3`
+  / table `201`, so its rules never share a mark or table with the OpenVPN
+  ones.
+- No `DNS` line, so the machine's resolver is left alone.
+- `PersistentKeepalive = 25` when it was missing or `0`.
+
+`AllowedIPs` is kept: with `Table = off` it no longer changes routing, it only
+tells WireGuard which destinations the peer may carry, and a full exit for the
+routed user needs `0.0.0.0/0` there.
+
+`wg-quick` names the interface after the file and Linux allows 15 characters,
+so `<name>.split` must fit: keep `<name>` to 9 characters or fewer.
+
+Bring it up by hand, or install it so it comes back after a reboot:
+
+```
+sudo wg-quick up ~/Downloads/biker.split.conf
+sudo -u biker curl -s ifconfig.me; echo            # expect the WireGuard server IP
+sudo wg-quick down ~/Downloads/biker.split.conf
+
+sudo install -m 600 ~/Downloads/biker.split.conf /etc/wireguard/
+sudo systemctl enable --now wg-quick@biker.split
+```
+
+Do not run a split OpenVPN and a split WireGuard profile at the same time:
+both down scripts remove the shared SSH safeguard and the IPv6 block for the
+user, so stopping one leaves the other without them.
 
 ## Routing your own login user instead of a dedicated user
 
