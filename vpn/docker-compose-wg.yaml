@@ -1,0 +1,24 @@
+services:
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy:15
+    container_name: wg-easy
+    restart: unless-stopped
+    environment:
+      - INIT_ENABLED=true
+      - INIT_USERNAME=admin
+      - INIT_PASSWORD=$2y$12....your_bcrypt_here
+      - INIT_HOST=your.domain.here
+      - INIT_PORT=51820
+      - INIT_IPV4_CIDR=10.8.0.0/16
+      - INIT_IPV6_CIDR=fdcc:ad94:bacf:61a4::/64
+      - INIT_ALLOWED_IPS=10.8.0.0/16
+    volumes:
+      - ./wg-data:/etc/wireguard
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "51820:51820/udp"
+      - "127.0.0.1:51821:51821/tcp"   # UI reachable only through nginx
+    cap_add: [NET_ADMIN, SYS_MODULE]
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
