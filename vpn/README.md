@@ -61,6 +61,7 @@ address, one of the three points above is missing.
 | `vpn-split-down.sh`     | remove the routing rules                             |
 | `install-persistent.sh` | patch a `.ovpn` so the rules apply on every connect  |
 | `install-persistent-wg.sh` | patch a WireGuard `.conf` the same way           |
+| `wg-fg.sh`              | run a WireGuard profile in the foreground            |
 
 ## One-time setup
 
@@ -179,6 +180,11 @@ For each profile it writes `<name>.split.conf` (mode 600) and renames the
 original to `bak.<name>.conf`. The copy gets:
 
 - `Table = off`, so `wg-quick` adds no routes or policy rules of its own.
+- `FwMark = 0xca6c`, plus a `PostUp` rule that lets that mark skip the
+  per-user `MARK` rule. WireGuard encrypts in the kernel but keeps the socket
+  of the process that sent the inner packet, so without this its own UDP still
+  matches `--uid-owner`, is routed back into the tunnel and loops, wrapped
+  again on every pass. The server then receives traffic and never answers.
 - A `PostUp` route for the VPN's own range (`10.8.0.0/16` by default, set
   `WG_ROUTES` to change it), so every user can reach the other peers.
 - `PostUp` / `PreDown` hooks that run `vpn-split-up.sh` / `vpn-split-down.sh`
@@ -204,6 +210,14 @@ sudo wg-quick down ~/Downloads/biker.split.conf
 
 sudo install -m 600 ~/Downloads/biker.split.conf /etc/wireguard/
 sudo systemctl enable --now wg-quick@biker.split
+```
+
+To hold the terminal the way `sudo openvpn --config` does, use `wg-fg.sh`. It
+brings the profile up, prints the handshake and transfer every 30 seconds, and
+brings it down on Ctrl-C, on kill, or when the terminal closes:
+
+```
+sudo ~/xrdp-tune/vpn/wg-fg.sh ~/xrdp-tune/vpn/biker.split.conf
 ```
 
 Do not run a split OpenVPN and a split WireGuard profile at the same time:

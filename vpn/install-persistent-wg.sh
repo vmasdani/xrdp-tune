@@ -9,6 +9,13 @@
 # stops that:
 #
 #   Table = off   wg-quick adds no routes and no policy rules at all.
+#   FwMark        marks WireGuard's own encrypted UDP packets 0xca6c, and a
+#                 PostUp rule lets that mark skip the per-user MARK rule.
+#                 WireGuard encrypts in the kernel but keeps the socket of the
+#                 process that sent the inner packet, so without this its UDP
+#                 still matches --uid-owner, is routed back into the tunnel
+#                 and loops, wrapped again on every pass. OpenVPN never hit
+#                 this because its daemon runs as root.
 #   PostUp        vpn-split-up.sh routes only one user's traffic into the
 #                 tunnel (fwmark + its own routing table + masquerade).
 #   PreDown       vpn-split-down.sh removes those rules again.
@@ -51,6 +58,8 @@ DOWN="$DIR/vpn-split-down.sh"
 MARK="${WG_FW_MARK:-0x3}"
 TABLE="${WG_RT_TABLE:-201}"
 ROUTES="${WG_ROUTES-10.8.0.0/16}"
+# The mark wg-quick itself uses; any value other than FW_MARK works.
+WG_OWN_MARK="0xca6c"
 
 # Resolve the user to bake into each profile. wg-quick runs PostUp as root, and
 # under systemd there is no SUDO_USER, so the name has to live in the profile.
@@ -87,7 +96,19 @@ patch_into() {
         routes+="PostUp = ip route replace $r dev %i"$'\n'
     done
 
-    awk -v up="PostUp = $hooks $UP" -v down="PreDown = $hooks $DOWN" -v routes="$routes" '
+    # Let WireGuard's own packets past the per-user MARK rule (mangle, IPv4)
+    # and past the per-user IPv6 REJECT (filter), in case the endpoint is IPv6.
+    local m="-m mark --mark $WG_OWN_MARK"
+    local own=""
+    own+="FwMark = $WG_OWN_MARK"$'\n'
+    own+="PostUp = iptables -t mangle -C OUTPUT $m -j RETURN 2>/dev/null || iptables -t mangle -I OUTPUT $m -j RETURN"$'\n'
+    own+="PostUp = ip6tables -C OUTPUT $m -j ACCEPT 2>/dev/null || ip6tables -I OUTPUT $m -j ACCEPT"$'\n'
+    local own_down=""
+    own_down+="PostDown = iptables -t mangle -D OUTPUT $m -j RETURN 2>/dev/null || true"$'\n'
+    own_down+="PostDown = ip6tables -D OUTPUT $m -j ACCEPT 2>/dev/null || true"$'\n'
+
+    awk -v up="PostUp = $hooks $UP" -v down="PreDown = $hooks $DOWN" -v routes="$routes" \
+        -v own="$own" -v own_down="$own_down" '
         function flush_peer() {
             if (in_peer && !peer_has_keepalive) print "PersistentKeepalive = 25"
             in_peer = 0; peer_has_keepalive = 0
@@ -97,15 +118,17 @@ patch_into() {
             print
             if ($0 ~ /^[[:space:]]*\[Interface\]/) {
                 print "Table = off"
+                printf "%s", own
                 printf "%s", routes
                 print up
                 print down
+                printf "%s", own_down
             } else if ($0 ~ /^[[:space:]]*\[Peer\]/) {
                 in_peer = 1
             }
             next
         }
-        /^[[:space:]]*(Table|DNS|PreUp|PostUp|PreDown|PostDown)[[:space:]]*=/ { next }
+        /^[[:space:]]*(Table|FwMark|DNS|PreUp|PostUp|PreDown|PostDown)[[:space:]]*=/ { next }
         /^[[:space:]]*PersistentKeepalive[[:space:]]*=/ {
             peer_has_keepalive = 1
             split($0, kv, "=")

@@ -9,3 +9,5 @@
 # WireGuard profiles carry private keys; vpn-split.conf is the only .conf tracked
 *.conf
 !vpn-split.conf
+*.conf.*
+bak.*
