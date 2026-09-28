@@ -31,7 +31,8 @@ IFACE="$(basename "$CONF" .conf)"
 wg-quick up "$CONF"
 
 cleanup() {
-    trap - INT TERM HUP EXIT
+    trap '' INT TERM HUP
+    trap - EXIT
     set +e
     # After a hangup the terminal is gone and every write fails. wg-quick runs
     # under set -e, so a failed write could abort it halfway through the
