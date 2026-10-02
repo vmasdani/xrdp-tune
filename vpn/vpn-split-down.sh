@@ -29,6 +29,8 @@ ip route flush table "$RT_TABLE" 2>/dev/null || true
 
 if [ -n "$UID_NUM" ]; then
     iptables -t mangle -D OUTPUT -m owner --uid-owner "$UID_NUM" -j MARK --set-mark "$FW_MARK" 2>/dev/null || true
+    ip6tables -D OUTPUT ! -o lo -m owner --uid-owner "$UID_NUM" -m conntrack --ctstate NEW -j REJECT 2>/dev/null || true
+    # Older versions of the up script appended this looser form.
     ip6tables -D OUTPUT -m owner --uid-owner "$UID_NUM" -j REJECT 2>/dev/null || true
 fi
 iptables -t mangle -D OUTPUT -p tcp --sport 22 -j RETURN 2>/dev/null || true

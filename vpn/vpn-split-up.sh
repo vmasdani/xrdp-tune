@@ -67,9 +67,14 @@ iptables -t nat -C POSTROUTING -o "$VPN_DEV" -j MASQUERADE 2>/dev/null \
 
 # 5. Block IPv6 for the VPN user. The VPN carries IPv4 only, so any
 #    IPv6 request would leak straight out over the normal connection
-#    and expose the real address. Reject it instead.
-ip6tables -C OUTPUT -m owner --uid-owner "$UID_NUM" -j REJECT 2>/dev/null \
-    || ip6tables -A OUTPUT -m owner --uid-owner "$UID_NUM" -j REJECT
+#    and expose the real address (Cloudflare shows it as a 240.0.0.0/4
+#    "pseudo IPv4"). Reject it so browsers fall back to IPv4 at once.
+#    Insert at the top: an appended rule sits behind ufw's ACCEPT
+#    chains and never fires. Loopback (::1) stays open, and only NEW
+#    connections are rejected so established sessions survive.
+IPV6_BLOCK=(OUTPUT ! -o lo -m owner --uid-owner "$UID_NUM" -m conntrack --ctstate NEW -j REJECT)
+ip6tables -C "${IPV6_BLOCK[@]}" 2>/dev/null \
+    || ip6tables -I "${IPV6_BLOCK[@]}"
 
 # 6. Loosen reverse-path filtering so asymmetric tunnel replies are
 #    not dropped.
