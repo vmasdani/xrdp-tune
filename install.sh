@@ -31,3 +31,17 @@ sleep 2
 systemctl --no-pager --lines=3 status xrdp xrdp-sesman || true
 echo
 echo "Done. Connect to port 3389, session type Xorg. See README.md for checks and rollback."
+cat <<EOF
+
+== SECURITY WARNING
+Do not expose xrdp (port 3389) directly to the internet on a public VPS.
+Tunnel RDP over SSH instead, which is more secure: block 3389 in the VPS
+firewall / provider security group and keep only SSH (22) open.
+
+Windows App on Android, through Termux:
+  1. In Termux: pkg install openssh
+  2. Save this as ~/rdp.sh, chmod +x ~/rdp.sh, then run ./rdp.sh and leave it open:
+       ssh -N -L 3389:127.0.0.1:3389 ${DESKTOP_USER:-username}@<vps-ip>
+  3. In Windows App, add a PC at 127.0.0.1:3389 (not the VPS IP).
+See "Security: RDP over SSH" in README.md.
+EOF

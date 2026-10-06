@@ -64,6 +64,29 @@ sudo ./install.sh someuser
 `install.sh` runs the five scripts below with `NO_RESTART=1`, then starts xrdp once.
 Takes a while: it builds xrdp and xorgxrdp.
 
+## Security: RDP over SSH
+
+> **Warning:** do not expose xrdp directly to the internet on a public VPS. Port 3389 open to
+> the world gets scanned and brute-forced constantly. Tunnel RDP over SSH instead, which is
+> more secure: block 3389 in the VPS firewall or provider security group and keep only SSH
+> (22) open. `install.sh` prints the same warning when it finishes.
+
+Windows App on Android, through Termux:
+
+1. Install [Termux](https://f-droid.org/packages/com.termux/), then `pkg install openssh`.
+2. Save the tunnel as `~/rdp.sh` in Termux and make it executable (`chmod +x ~/rdp.sh`):
+
+   ```
+   ssh -N -L 3389:127.0.0.1:3389 username@host
+   ```
+
+3. Run `./rdp.sh` and leave Termux open in the background.
+4. In the Windows App, add a PC at `127.0.0.1:3389` (not the VPS address). The connection
+   goes through the SSH tunnel to xrdp on the VPS.
+
+SSH key login (`ssh-keygen` in Termux, `ssh-copy-id username@host`) avoids typing the
+password on every connect.
+
 ## Scripts
 
 | Script | What it does | Restarts xrdp |
