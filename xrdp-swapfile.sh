@@ -12,8 +12,8 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-RAM_GB=$(awk '/^MemTotal:/ {printf "%d", $2 / 1048576 + 0.5}' /proc/meminfo)
-DEFAULT_GB=$(( RAM_GB / 2 )); [ "$DEFAULT_GB" -lt 2 ] && DEFAULT_GB=2; [ "$DEFAULT_GB" -gt 8 ] && DEFAULT_GB=8
+RAM_MB=$(awk '/^MemTotal:/ {printf "%d", $2 / 1024}' /proc/meminfo)
+DEFAULT_GB=$(( (RAM_MB / 2 + 512) / 1024 )); [ "$DEFAULT_GB" -lt 2 ] && DEFAULT_GB=2; [ "$DEFAULT_GB" -gt 8 ] && DEFAULT_GB=8
 SIZE_GB=${1:-$DEFAULT_GB}
 SWAPFILE=/swapfile
 

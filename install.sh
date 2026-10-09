@@ -27,11 +27,11 @@ if [ "$ASSUME_YES" = 0 ] && [ ! -t 0 ]; then
 fi
 
 # Recommended numbers, from this machine.
-RAM_GB=$(awk '/^MemTotal:/ {printf "%d", $2 / 1048576 + 0.5}' /proc/meminfo)
-[ "$RAM_GB" -lt 1 ] && RAM_GB=1
-REC_ZRAM_GB=$RAM_GB; [ "$REC_ZRAM_GB" -gt 16 ] && REC_ZRAM_GB=16                  # = RAM, max 16
-REC_SWAP_GB=$(( RAM_GB / 2 )); [ "$REC_SWAP_GB" -lt 2 ] && REC_SWAP_GB=2         # RAM / 2,
-[ "$REC_SWAP_GB" -gt 8 ] && REC_SWAP_GB=8                                         # 2 to 8
+# zram works in MB: whole GB rounds a 512 MB box to 0 and then to a 1 GB floor (2x RAM).
+RAM_MB=$(awk '/^MemTotal:/ {printf "%d", $2 / 1024}' /proc/meminfo)
+REC_ZRAM_MB=$RAM_MB; [ "$REC_ZRAM_MB" -gt 16384 ] && REC_ZRAM_MB=16384           # = RAM, max 16 GB
+REC_SWAP_GB=$(( (RAM_MB / 2 + 512) / 1024 ))                                     # RAM / 2,
+[ "$REC_SWAP_GB" -lt 2 ] && REC_SWAP_GB=2; [ "$REC_SWAP_GB" -gt 8 ] && REC_SWAP_GB=8   # 2 to 8 GB
 DISK_SWAP=$(awk 'NR > 1 && $1 !~ /^\/dev\/zram/ {printf "%s%s (%d MB)", s, $1, $3 / 1024; s = ", "}' /proc/swaps)
 
 # ask_yn VAR "question" y|n
@@ -56,7 +56,7 @@ ask_num() {
     read -r -p "$2 [$3]: " ans
     ans=${ans:-$3}
     if [[ "$ans" =~ ^[1-9][0-9]*$ ]]; then printf -v "$1" %s "$ans"; return; fi
-    echo "   Whole number of GB, please."
+    echo "   Whole number, please."
   done
 }
 # ask_pick VAR "question" default-number option1 option2 ...
@@ -75,7 +75,7 @@ ask_pick() {
 }
 
 echo "== xrdp-tune installer"
-echo "   This machine: ${RAM_GB} GB RAM, $(nproc) CPUs, disk swap: ${DISK_SWAP:-none}"
+echo "   This machine: ${RAM_MB} MB RAM, $(nproc) CPUs, disk swap: ${DISK_SWAP:-none}"
 echo
 
 DESKTOP_USER=${1:-${SUDO_USER:-}}
@@ -97,7 +97,7 @@ ask_yn DO_FLAMESHOT "Flameshot on Ctrl+Alt+Shift+P (xrdp-flameshot.sh, recommend
 
 ask_yn DO_ZRAM "zram: compressed swap in RAM (recommended)" y
 if [ "$DO_ZRAM" = y ]; then
-  ask_num ZRAM_GB "   zram size in GB (recommended $REC_ZRAM_GB = RAM)" "$REC_ZRAM_GB"
+  ask_num ZRAM_MB "   zram size in MB (recommended $REC_ZRAM_MB = RAM)" "$REC_ZRAM_MB"
   ask_pick ZRAM_ALGO "   zram compression:" 1 "zstd (recommended, ~3:1)" "lz4 (less CPU, ~2:1)"
   ZRAM_ALGO=${ZRAM_ALGO%% *}
 fi
@@ -122,7 +122,7 @@ echo "   Lean           $(yn "$DO_LEAN")"
 echo "   Flat look      $(yn "$DO_UGLY")"
 echo "   Flameshot      $(yn "$DO_FLAMESHOT")"
 if [ "$DO_ZRAM" = y ]; then
-  echo "   zram           yes, $ZRAM_GB GB, $ZRAM_ALGO"
+  echo "   zram           yes, $ZRAM_MB MB, $ZRAM_ALGO"
 else
   echo "   zram           no"
 fi
@@ -133,6 +133,10 @@ case "$DO_SWAP" in
 esac
 if [ "$DO_ZRAM" = n ] && [ "$DO_SWAP" = n ]; then
   echo "   Warning: no swap at all. A memory spike goes straight to the OOM killer."
+fi
+if [ "$RAM_MB" -lt 1800 ]; then
+  echo "   Warning: ${RAM_MB} MB RAM is too little for KDE Plasma (about 1.2 GB on its own)."
+  echo "   Expect constant swapping even with zram. 2 GB is the minimum, 4 GB is comfortable."
 fi
 echo "   Takes a while: it builds xrdp and xorgxrdp."
 echo
@@ -146,7 +150,7 @@ fi
 
 export NO_RESTART=1
 [ "$DO_SWAP" = y ]       && ./xrdp-swapfile.sh "$SWAP_GB"
-[ "$DO_ZRAM" = y ]       && ZRAM_SIZE=$(( ZRAM_GB * 1024 )) ZRAM_ALGO=$ZRAM_ALGO ./xrdp-zram.sh
+[ "$DO_ZRAM" = y ]       && ZRAM_SIZE=$ZRAM_MB ZRAM_ALGO=$ZRAM_ALGO ./xrdp-zram.sh
 ./xrdp-setup.sh "$DESKTOP_USER"
 [ "$DO_SNAPPY" = y ]     && ./xrdp-snappy.sh
 [ "$DO_LEAN" = y ]       && ./xrdp-lean.sh "$DESKTOP_USER"
