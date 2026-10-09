@@ -5,6 +5,7 @@
 #   xrdp-lean.sh    channels, priority, fq, TLS, logging, KDE trims (frame interval 8 ms)
 #   xrdp-ugly.sh    looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
 #   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
+#   xrdp-zram.sh    compressed swap in RAM (zram, zstd, size = RAM), disk swap as overflow
 # then one xrdp start at the end.
 #
 # Usage: sudo ./install.sh [desktop-user]
@@ -23,6 +24,7 @@ export NO_RESTART=1
 ./xrdp-lean.sh "$DESKTOP_USER"
 ./xrdp-ugly.sh "$DESKTOP_USER"
 ./xrdp-flameshot.sh "$DESKTOP_USER"
+./xrdp-zram.sh
 
 echo "== Starting xrdp"
 systemctl daemon-reload

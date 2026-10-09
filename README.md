@@ -61,7 +61,7 @@ sudo ./install.sh            # desktop user = the user who ran sudo
 sudo ./install.sh someuser
 ```
 
-`install.sh` runs the five scripts below with `NO_RESTART=1`, then starts xrdp once.
+`install.sh` runs the six scripts below with `NO_RESTART=1`, then starts xrdp once.
 Takes a while: it builds xrdp and xorgxrdp.
 
 ## Security: RDP over SSH
@@ -97,6 +97,7 @@ password on every connect.
 | `xrdp-snappy.sh` | BBR, `tcp_notsent_lowat`, no slow start after idle, 60 fps frame interval | yes, unless `NO_RESTART=1` |
 | `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off | never |
 | `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next Plasma login | never |
+| `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
 
 Each script can run on its own on an existing box. All are idempotent and back up the files
 they edit (`*.pre-snappy`, `*.pre-lean`, `*.pre-ugly`, `/root/xrdp-etc-backup-<timestamp>`).
