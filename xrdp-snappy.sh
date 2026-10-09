@@ -26,7 +26,7 @@ EOF
 sysctl -p /etc/sysctl.d/91-xrdp-latency.conf
 
 echo "== xrdp frame rate: RFX frame interval 32 ms -> 16 ms (about 30 -> 60 fps cap)"
-cp -n /etc/xrdp/xrdp.ini /etc/xrdp/xrdp.ini.pre-snappy
+[ -e /etc/xrdp/xrdp.ini.pre-snappy ] || cp /etc/xrdp/xrdp.ini /etc/xrdp/xrdp.ini.pre-snappy
 sed -i -E 's/^rfx_frame_interval=.*/rfx_frame_interval=16/' /etc/xrdp/xrdp.ini
 grep -nE '^(h264|rfx|normal)_frame_interval' /etc/xrdp/xrdp.ini
 

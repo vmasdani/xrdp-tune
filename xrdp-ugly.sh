@@ -19,7 +19,7 @@ USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 kw() { sudo -u "$DESKTOP_USER" HOME="$USER_HOME" kwriteconfig5 "$@"; }
 
 echo "== xrdp.ini: keep new_cursors=true (legacy 1-bit cursors make alpha Breeze shapes vanish)"
-cp -n /etc/xrdp/xrdp.ini /etc/xrdp/xrdp.ini.pre-ugly
+[ -e /etc/xrdp/xrdp.ini.pre-ugly ] || cp /etc/xrdp/xrdp.ini /etc/xrdp/xrdp.ini.pre-ugly
 sed -i -E 's/^new_cursors=.*/new_cursors=true/' /etc/xrdp/xrdp.ini
 
 echo "== Flat dark theme, solid black wallpaper, no icon effects"

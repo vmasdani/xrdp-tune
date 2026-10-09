@@ -22,9 +22,9 @@ fi
 USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 as_user() { sudo -u "$DESKTOP_USER" HOME="$USER_HOME" "$@"; }
 
-cp -n /etc/xrdp/xrdp.ini   /etc/xrdp/xrdp.ini.pre-lean
-cp -n /etc/xrdp/sesman.ini /etc/xrdp/sesman.ini.pre-lean
-cp -n /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.pre-lean
+for f in xrdp.ini sesman.ini startwm.sh; do
+  [ -e "/etc/xrdp/$f.pre-lean" ] || cp "/etc/xrdp/$f" "/etc/xrdp/$f.pre-lean"
+done
 
 echo "== 1. Channels: keep clipboard (cliprdr) and drdynvc (GFX runs over it), drop the rest"
 # rdpdr = client drive/printer redirection, rdpsnd = audio, rail = RemoteApp, xrdpvr = video.
@@ -59,7 +59,9 @@ cat > /etc/sysctl.d/92-xrdp-lean.conf <<'SYS'
 net.core.default_qdisc=fq
 SYS
 sysctl -p /etc/sysctl.d/92-xrdp-lean.conf
-for dev in $(ip -o link show up | awk -F': ' '$2 != "lo" && $2 !~ /^tun/ {print $2}'); do
+# Physical NICs only: names come as "veth1234@if2" for container links, and Docker's
+# bridges and veths never carry the RDP stream.
+for dev in $(ip -o link show up | awk -F': ' '{sub(/@.*/, "", $2)} $2 != "lo" && $2 !~ /^(tun|wg|veth|docker|br-)/ {print $2}'); do
   tc qdisc replace dev "$dev" root fq && echo "   $dev: fq"
 done
 
@@ -91,7 +93,7 @@ kw --file breezerc --group Common --key OutlineCloseButton false
 kw --file breezerc --group Style --key AnimationsEnabled false
 kw --file kdeglobals --group KDE --key AnimationDurationFactor 0
 kw --file kdeglobals --group KDE --key CursorBlinkRate 0
-kw --file plasmarc --group PlasmaToolTips --key Delay -1
+kw --file plasmarc --group PlasmaToolTips --key Delay -- -1   # -- or -1 is read as an option
 kw --file krunnerrc --group General --key FreeFloating false
 kw --file klaunchrc --group BusyCursorSettings --key Bouncing false
 kw --file klaunchrc --group FeedbackStyle --key BusyCursor false
