@@ -57,11 +57,15 @@ screenshots and logs into AI chats), audio and drive redirection dropped.
 ```
 git clone <this repo> xrdp-tune
 cd xrdp-tune
-sudo ./install.sh            # desktop user = the user who ran sudo
+sudo ./install.sh            # asks, desktop user defaults to the user who ran sudo
 sudo ./install.sh someuser
+sudo ./install.sh -y         # every default, no questions
 ```
 
-`install.sh` runs the six scripts below with `NO_RESTART=1`, then starts xrdp once.
+`install.sh` asks what to install (desktop, each tuning script, zram size and compressor,
+disk swapfile size), with recommended sizes worked out from the machine's RAM: zram = RAM
+(max 16 GB), swapfile = RAM / 2 (2 to 8 GB). It shows a review and starts only after `y`.
+The chosen scripts run with `NO_RESTART=1`, swap first, then xrdp starts once.
 Takes a while: it builds xrdp and xorgxrdp.
 
 ## Security: RDP over SSH
@@ -91,13 +95,14 @@ password on every connect.
 
 | Script | What it does | Restarts xrdp |
 |---|---|---|
-| `install.sh` | All of the below, one start at the end | yes |
+| `install.sh` | Asks, reviews, then runs the chosen scripts below, one start at the end | yes |
 | `xrdp-ugly.sh` | Looks for latency: Breeze Dark flat theme, solid black wallpaper, no window borders/shadows, fonts antialiased with hintfull and subpixel rgb, plain 24 px cursor, no clock seconds, notifications off | never |
 | `xrdp-setup.sh` | Plasma + apps, xrdp 0.10.6.1 + xorgxrdp 0.10.5 from source, GFX (32 bpp), 4 MB TCP buffers, H.264 bitrate cap, startwm.sh, `.xsession`, KDE compositing/animations off | yes, unless `NO_RESTART=1` |
 | `xrdp-snappy.sh` | BBR, `tcp_notsent_lowat`, no slow start after idle, 60 fps frame interval | yes, unless `NO_RESTART=1` |
 | `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off | never |
 | `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next Plasma login | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
+| `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists; never resizes or removes one | never |
 
 Each script can run on its own on an existing box. All are idempotent and back up the files
 they edit (`*.pre-snappy`, `*.pre-lean`, `*.pre-ugly`, `/root/xrdp-etc-backup-<timestamp>`).
