@@ -2,9 +2,10 @@
 # Compressed swap in RAM (zram) so the 12 GB box holds more before touching the disk swapfile.
 # Run: sudo ./xrdp-zram.sh
 #
-# Never restarts xrdp and needs no reboot: zram swap starts live. Pages already in the disk
-# swapfile stay there until touched; to pull them back into RAM right away (needs that much
-# free RAM):  sudo swapoff /swapfile && sudo swapon /swapfile
+# Never restarts xrdp and needs no reboot: zram swap starts live. A rerun rebuilds an active
+# /dev/zram0 with the current settings. Pages already in the disk swapfile stay there until
+# touched; to pull them back into RAM right away (needs that much free RAM):
+#   sudo swapoff /swapfile && sudo swapon /swapfile
 #
 # Layout after this script:
 #   /dev/zram0  zstd, size = RAM, priority 100  (used first)
@@ -60,8 +61,16 @@ echo 0 > /sys/module/zswap/parameters/enabled 2>/dev/null || true
 echo "== 5. Start zram swap"
 systemctl daemon-reload
 if grep -q '^/dev/zram0 ' /proc/swaps; then
-  echo "   /dev/zram0 already active. Config changes apply at next boot, or now with:"
-  echo "   sudo swapoff /dev/zram0 && sudo systemctl restart systemd-zram-setup@zram0 dev-zram0.swap"
+  # Already up: from an earlier run, or from the package's own default [zram0] (50% of RAM,
+  # max 4 GiB, kernel default compressor) if a reboot or daemon-reload came before this config.
+  # Rebuild it so the settings above apply now. swapoff first moves its pages back to RAM.
+  echo "   /dev/zram0 already active: rebuilding it with this config"
+  if swapoff /dev/zram0; then
+    systemctl restart systemd-zram-setup@zram0
+    systemctl start dev-zram0.swap
+  else
+    echo "   swapoff failed (not enough free RAM). Config applies at next boot."
+  fi
 elif modprobe zram 2>/dev/null; then
   systemctl start dev-zram0.swap
 else

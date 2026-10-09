@@ -31,7 +31,10 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
   plasma-desktop plasma-workspace kwin-x11 dbus-x11 kde-config-screenlocker maliit-keyboard \
   konsole dolphin kate kde-spectacle \
-  pipewire-module-xrdp
+  pipewire-module-xrdp \
+  xserver-xorg-core x11-xserver-utils
+# xserver-xorg-core: /usr/lib/xorg/Xorg itself (plus xkbcomp). xorgxrdp from source only adds
+# modules to it; without it sesman fails with "X server could not be started".
 
 echo "== Installing xrdp build dependencies"
 apt-get install -y git build-essential autoconf automake libtool pkg-config nasm \
