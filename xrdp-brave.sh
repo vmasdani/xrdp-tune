@@ -13,7 +13,6 @@
 # Flags (desktop-user's launcher, ~/.local/share/applications/brave-browser.desktop):
 #   --disable-smooth-scrolling       one frame per scroll step, not an animated glide
 #   --force-prefers-reduced-motion   sites that honour it drop their animations
-#   --force-dark-mode, WebContentsForceDark   dark UI and pages, matches xrdp-ugly.sh
 # The flags only apply when Brave starts from the menu, taskbar or xdg-open, not when typed
 # as `brave-browser` in a terminal.
 set -euo pipefail
@@ -69,7 +68,7 @@ EOF
 chmod 644 /etc/brave/policies/managed/xrdp-tune.json
 
 echo "== Flags: launcher override for $DESKTOP_USER"
-FLAGS="--disable-smooth-scrolling --force-prefers-reduced-motion --force-dark-mode --enable-features=WebContentsForceDark"
+FLAGS="--disable-smooth-scrolling --force-prefers-reduced-motion"
 APPS="$USER_HOME/.local/share/applications"
 as_user mkdir -p "$APPS"
 # A user .desktop file with the same name shadows the system one, taskbar pins included.
