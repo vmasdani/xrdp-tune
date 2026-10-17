@@ -115,6 +115,7 @@ standard tool when they are not, and never install them unasked.
 |---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | `ln -s ~/.claude-shared/TOOLS.md ~/.claude/TOOLS.md`, then add the line `@TOOLS.md` |
 | Codex CLI | `~/.codex/AGENTS.md` | Paste the rules into the file. Codex does not document `@` imports, so an `@` line may reach the model as plain text |
+| opencode | `~/.config/opencode/AGENTS.md` | Paste the rules into the file, or list the shared file under `"instructions"` in `~/.config/opencode/opencode.json` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | Add `@/home/<user>/.claude-shared/TOOLS.md` (Gemini CLI expands `@file` imports) |
 | Others | `AGENTS.md` in the repo root | Most other agents read this per project; paste the rules there |
 
