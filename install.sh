@@ -8,6 +8,7 @@
 #   xrdp-lean.sh       channels, priority, fq, TLS, logging, KDE trims (frame interval 8 ms)
 #   xrdp-ugly.sh       looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
 #   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
+#   xrdp-brave.sh      Brave browser, policies and flags for a GPU-less desktop
 # then one xrdp start at the end. Swap comes first so the xrdp build has memory to spare.
 #
 # Usage: sudo ./install.sh [desktop-user]       ask, review, confirm
@@ -94,6 +95,7 @@ ask_yn DO_SNAPPY    "Network latency tuning: BBR, 60 fps (xrdp-snappy.sh, recomm
 ask_yn DO_LEAN      "Lean tuning: priorities, fq, channels, KDE effects off (xrdp-lean.sh, recommended)" y
 ask_yn DO_UGLY      "Flat dark look for latency (xrdp-ugly.sh, recommended)" y
 ask_yn DO_FLAMESHOT "Flameshot on Ctrl+Alt+Shift+P (xrdp-flameshot.sh, recommended)" y
+ask_yn DO_BRAVE     "Brave browser, tuned for no GPU (xrdp-brave.sh, recommended)" y
 
 ask_yn DO_ZRAM "zram: compressed swap in RAM (recommended)" y
 if [ "$DO_ZRAM" = y ]; then
@@ -121,6 +123,7 @@ echo "   Snappy         $(yn "$DO_SNAPPY")"
 echo "   Lean           $(yn "$DO_LEAN")"
 echo "   Flat look      $(yn "$DO_UGLY")"
 echo "   Flameshot      $(yn "$DO_FLAMESHOT")"
+echo "   Brave          $(yn "$DO_BRAVE")"
 if [ "$DO_ZRAM" = y ]; then
   echo "   zram           yes, $ZRAM_MB MB, $ZRAM_ALGO"
 else
@@ -156,6 +159,7 @@ export NO_RESTART=1
 [ "$DO_LEAN" = y ]       && ./xrdp-lean.sh "$DESKTOP_USER"
 [ "$DO_UGLY" = y ]       && ./xrdp-ugly.sh "$DESKTOP_USER"
 [ "$DO_FLAMESHOT" = y ]  && ./xrdp-flameshot.sh "$DESKTOP_USER"
+[ "$DO_BRAVE" = y ]      && ./xrdp-brave.sh "$DESKTOP_USER"
 
 echo "== Starting xrdp"
 systemctl daemon-reload

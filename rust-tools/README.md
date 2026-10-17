@@ -82,6 +82,58 @@ Latency notes for a GPU-less RDP desktop:
 - Zellij's status bars and pane frames repaint on every change. `zellij options --simplified-ui true --pane-frames false`
   (or the same keys in `~/.config/zellij/config.kdl`) keeps the redraws small.
 
+## Benchmark
+
+`bench.sh` times each GNU tool against its Rust counterpart on a directory tree:
+
+```
+./rust-tools/bench.sh <dir> [runs] [pattern] [extension]   # defaults: 5 runs, TODO, ts
+```
+
+It warms the cache with one run, then reports the median wall time and the output line
+count. The line count shows how much each tool actually searched: `rg` and `fd` skip
+`.gitignore`'d, hidden and binary files by default, while `-uuu` (rg) and `-uu` (fd) make
+them cover the same files as `grep` and `find`.
+
+Measured on the target VPS (6 vCPU, 11 GB RAM, no GPU), `LANG=C.UTF-8`, October 2026:
+
+- **eng2**: one Vite/React repo, 764 MB, 62,579 files, mostly `node_modules`. Fits in the
+  page cache; 5 runs.
+- **all projects**: 22 project folders, 14 GB, 605,019 files. Larger than free RAM, so content searches
+  read from disk on every pass; 1 run.
+
+| Task | Command | eng2 | lines | all projects | lines |
+|---|---|---:|---:|---:|---:|
+| Literal search `TODO` | `grep -rn` | 1546 ms | 3,192 | 180.9 s | 30,083 |
+| | `grep -rn --exclude-dir=node_modules,.git` | 42 ms | 0 | 80.4 s | 4,878 |
+| | `rg -n` | 31 ms | 0 | 0.45 s | 280 |
+| | `rg -n -uuu` | 401 ms | 3,192 | 60.8 s | 30,290 |
+| Regex `error\|warn`, ignore case | `grep -rniE` | 1404 ms | 162,972 | 169.9 s | 1,972,843 |
+| | `rg -ni` | 37 ms | 1,793 | 0.23 s | 39,284 |
+| | `rg -ni -uuu` | 678 ms | 162,985 | 61.0 s | 1,983,606 |
+| Find `*.ts` | `find -name` | 271 ms | 16,718 | 2.83 s | 115,742 |
+| | `find` with `-prune` of `node_modules`, `.git` | 24 ms | 319 | 0.63 s | 1,539 |
+| | `fd -e ts` | 45 ms | 319 | 0.06 s | 1,496 |
+| | `fd -uu -e ts` | 181 ms | 16,718 | 0.74 s | 115,742 |
+| List every file | `find -type f` | 300 ms | 62,579 | 2.37 s | 605,019 |
+| | `fd -uu -t f` | 200 ms | 62,579 | 1.01 s | 605,019 |
+| Print a 1-2 MB JSON file | `cat` | 17 ms | | 12 ms | |
+| | `bat -pp` | 45 ms | | 116 ms | |
+| | `bat --color=always` | 1843 ms | | 1534 ms | |
+
+What it shows:
+
+- Searching the same files, `rg` is 2 to 4 times faster than `grep` (60 s against 170 to
+  180 s on the full tree), and `fd` is 1.5 to 4 times faster than `find`.
+- The bigger win is what they skip. On the full tree, `rg TODO` takes 0.45 s against 181 s
+  for `grep -rn`, and its 280 matches are the ones in project code; the other 30,000 are in
+  `node_modules`, build output and vendored files.
+- Excluding `node_modules` and `.git` by hand is enough for `grep` on a single repo, but not
+  across many: the full tree still took 80 s because each repo ignores other things too
+  (`dist`, `.venv`, `target`, archives). `rg` reads each repo's own `.gitignore`.
+- `bat` is for people, not pipes: highlighting costs about 100 times more than `cat`.
+- zoxide, Starship and Zellij have no direct counterpart to time and are not benchmarked.
+
 ## Tell coding agents to use them
 
 Agents read a global instruction file at session start. Put the rules in one shared file and

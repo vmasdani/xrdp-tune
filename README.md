@@ -101,6 +101,7 @@ password on every connect.
 | `xrdp-snappy.sh` | BBR, `tcp_notsent_lowat`, no slow start after idle, 60 fps frame interval | yes, unless `NO_RESTART=1` |
 | `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off | never |
 | `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next Plasma login | never |
+| `xrdp-brave.sh` | Brave from Brave's apt repo. Policies: hardware acceleration off, memory saver, no background mode, autoplay and site notifications off, Rewards/Wallet/VPN/Tor/News/Talk/Leo/Playlist and telemetry off. Launcher flags: smooth scrolling off, reduced motion, forced dark mode. Applies at the next Brave start | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
 | `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists; never resizes or removes one | never |
 | `rust-tools/rust-tools.sh` | ripgrep, fd, bat, zoxide (apt) plus Starship and Zellij (latest release), zoxide and Starship hooks in `~/.bashrc`. Not part of `install.sh`; see [rust-tools/README.md](rust-tools/README.md) | never |
@@ -131,6 +132,7 @@ sudo grep -aiE 'gfx|rfx|h\.?264|codec' /var/log/xrdp.log | tail   # needs LogLev
 
 - Client resolution 1024x640 instead of 1280x800: ~36% fewer pixels per frame. Biggest lever.
 - Chrome: `chrome://flags` smooth scrolling off, reduce motion on, force dark mode on.
+  `xrdp-brave.sh` does the same for Brave, plus policies.
 - VS Code: minimap off, cursor blink off, smooth scrolling off, `terminal.integrated.gpuAcceleration` off.
 - Colour depth stays 32 bpp: lower depth disables GFX and is slower, not faster.
 
