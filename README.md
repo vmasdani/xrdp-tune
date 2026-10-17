@@ -52,6 +52,33 @@ screenshots and logs into AI chats), audio and drive redirection dropped.
 [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/), via
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Samsung_Galaxy_TabPro_S_(23850808283).jpg).</sub>
 
+## Recommended providers
+
+Not an endorsement, and no affiliate links. These are budget providers that sell KVM VPS
+plans big enough for this desktop. Prices were checked in October 2026, are the cheapest
+advertised rate (often tied to a long term or an intro period), and change often: confirm on
+the provider's site before you buy.
+
+| Provider | Type | RAM | Processor | Price / mo |
+|---|---|---|---|---|
+| [Contabo](https://contabo.com/en/vps/) | Cloud VPS 4 (KVM) | 8 GB | 4 vCPU | €4.40 (24-month term), €5.50 monthly |
+| [OVHcloud](https://us.ovhcloud.com/vps/) | VPS-1 (KVM) | 4 GB | 2 vCore | from $4.54 |
+| [OVHcloud](https://us.ovhcloud.com/vps/) | VPS-2 (KVM) | 8 GB | 4 vCore | from $8.50 |
+| [Hostinger](https://www.hostinger.com/vps-hosting) | KVM 2 | 8 GB | 2 vCPU, AMD EPYC | $8.99 intro, $14.99 renewal |
+| [InterServer](https://www.interserver.net/vps/) | Linux VPS, 4 slices (KVM) | 8 GB | 4 cores | about $24 ($6 per slice of 1 core / 2 GB) |
+| [SumoPod](https://sumopod.com/) | VPS (Tencent Cloud or Cloudeka), Jakarta or Singapore | 4 GB | 2 vCPU | about Rp 85k |
+| [SumoPod](https://sumopod.com/) | VPS (Tencent Cloud or Cloudeka), Jakarta or Singapore | 8 GB | 2 vCPU | about Rp 150k |
+
+**8 GB of RAM is plenty.** Linux with zram (`xrdp-zram.sh`, which `install.sh` offers)
+compresses swapped-out pages in RAM with zstd, typically at 2:1 to 3:1 for desktop and
+browser memory. An 8 GB box then holds Plasma, Brave, an editor and several coding agents
+without touching the disk. 4 GB works for a lighter load.
+
+Pick the region closest to you: round-trip time matters more than core count for how the
+desktop feels. Cheap plans share CPUs, so run `./cpu-steal-check.sh` on a new box. If the
+host takes a large share of the vCPU (long stalls, a high "taken by the host" percentage),
+ask for a migration or move providers.
+
 ## Fresh install
 
 ```
