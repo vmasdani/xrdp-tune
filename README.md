@@ -103,6 +103,7 @@ password on every connect.
 | `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next Plasma login | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
 | `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists; never resizes or removes one | never |
+| `rust-tools/rust-tools.sh` | ripgrep, fd, bat, zoxide (apt) plus Starship and Zellij (latest release), zoxide and Starship hooks in `~/.bashrc`. Not part of `install.sh`; see [rust-tools/README.md](rust-tools/README.md) | never |
 
 Each script can run on its own on an existing box. All are idempotent and back up the files
 they edit (`*.pre-snappy`, `*.pre-lean`, `*.pre-ugly`, `/root/xrdp-etc-backup-<timestamp>`).
@@ -156,6 +157,13 @@ logged out of RDP; a running session rewrites that file on logout.
 `xpra/xpra-shadow.sh` mirrors the running xrdp desktop to a browser tab over H.264 with
 xpra's HTML5 client, next to xrdp. **Tried and not worth it:** noticeably laggier than xrdp
 RFX on a GPU-less VPS. Kept as a record; reasons in [xpra/README.md](xpra/README.md).
+
+## Rust CLI tools
+
+`rust-tools/rust-tools.sh` installs ripgrep, fd, bat, zoxide, Starship and Zellij for the
+terminal side of the workload. [rust-tools/README.md](rust-tools/README.md) covers usage,
+latency notes for RDP, and how to tell coding agents (Claude Code, Codex, Gemini CLI) to
+prefer these tools whenever they are installed.
 
 ## Notes
 
