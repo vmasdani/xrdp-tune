@@ -8,7 +8,7 @@
 #   memory saver on, balanced   inactive tabs are discarded, RAM goes to the desktop instead
 #   background mode off         no Brave processes left running after the last window closes
 #   autoplay off, site notifications blocked, no promotions: fewer surprise frames
-#   Rewards, Wallet, VPN, Tor, News, Talk, Leo, local AI, Playlist off: no background services
+#   Rewards, VPN, Tor, News, Talk, Leo, local AI, Playlist off: no background services
 #   P3A, stats ping, Web Discovery off: less background traffic
 # Flags (desktop-user's launcher, ~/.local/share/applications/brave-browser.desktop):
 #   --disable-smooth-scrolling       one frame per scroll step, not an animated glide
@@ -52,7 +52,6 @@ cat > /etc/brave/policies/managed/xrdp-tune.json <<'EOF'
   "DefaultNotificationsSetting": 2,
   "PromotionsEnabled": false,
   "BraveRewardsDisabled": true,
-  "BraveWalletDisabled": true,
   "BraveVPNDisabled": true,
   "TorDisabled": true,
   "BraveNewsDisabled": true,
@@ -78,6 +77,8 @@ for f in brave-browser.desktop com.brave.Browser.desktop; do
   sed -E "s|^(Exec=/usr/bin/brave-browser-stable)|\1 $FLAGS|" "/usr/share/applications/$f" \
     | as_user tee "$APPS/$f" >/dev/null
 done
+# Plasma launches from its sycoca cache, which still holds the old Exec line until rebuilt.
+as_user kbuildsycoca5 >/dev/null 2>&1 || true
 
 echo
 brave-browser --version || true
