@@ -121,6 +121,8 @@ run the scripts while logged out of RDP, or they stop with a message.
 **Switching an existing box:** Brave chooses its cookie and password encryption from the
 desktop (kwallet under KDE, libsecret or basic under Xfce). Moving a profile across desktops
 logs you out of every site. Start Brave with `--password-store=kwallet5` in both to keep it.
+Step-by-step switch of an existing KDE box, without rebuilding xrdp:
+[xfce-switch.md](xfce-switch.md).
 
 ## Security: RDP over SSH
 
@@ -222,6 +224,13 @@ RFX on a GPU-less VPS. Kept as a record; reasons in [xpra/README.md](xpra/README
 terminal side of the workload. [rust-tools/README.md](rust-tools/README.md) covers usage,
 latency notes for RDP, and how to tell coding agents (Claude Code, Codex, Gemini CLI) to
 prefer these tools whenever they are installed.
+
+## Old laptop on Windows
+
+[laptop-windows/](laptop-windows/README.md) holds a lean tuning script for Windows 10/11 on an
+old gaming laptop (Intel graphics plus a Fermi GeForce 820M), with WSL 2 for Linux. It
+explains why Windows beats Linux on that hardware (no Fermi driver or Vulkan on Linux, so
+no Counter-Strike 2) and why memory compression stays on.
 
 ## Notes
 
