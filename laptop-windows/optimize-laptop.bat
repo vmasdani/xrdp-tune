@@ -30,11 +30,6 @@ $DisableWindowsSearch = 'auto'
 # Default $false keeps Balanced; switch plans by hand when gaming on the charger.
 $UseHighPerformancePlan = $false
 
-# WSL 2 memory cap in GB. WSL 2 takes up to half of RAM by default, which
-# starves Windows on a small laptop. 0 means a quarter of RAM, at least 1 GB.
-# Only written when %USERPROFILE%\.wslconfig does not exist yet.
-$WslMemoryGB = 0
-
 # ---------------------------------------------------------------------------
 
 $ErrorActionPreference = 'Stop'
@@ -188,7 +183,11 @@ Step "High performance power plan" {
     if ($LASTEXITCODE) { throw 'powercfg could not switch the plan' }
 }
 
-Step "WSL 2 memory cap" {
+# No memory cap on purpose: the laptop is either compiling in Linux or gaming in
+# Windows, and a cap would slow the Linux side. The problem is Linux keeping its
+# file cache after a build. Gradual reclaim hands idle cache back to Windows over
+# a few minutes; "wsl --shutdown" before a game frees all of it at once.
+Step "WSL 2 hands idle memory back to Windows" {
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         return 'WSL is not installed'
     }
@@ -196,16 +195,8 @@ Step "WSL 2 memory cap" {
     if (Test-Path $config) {
         return "$config already exists, left as is"
     }
-    $gb = if ($WslMemoryGB -gt 0) { $WslMemoryGB } else { [math]::Max(1, [math]::Floor($ramGB / 4)) }
-    $lines = @(
-        '[wsl2]'
-        "memory=${gb}GB"
-        ''
-        '[experimental]'
-        'autoMemoryReclaim=gradual'
-    )
-    Set-Content -Path $config -Value $lines -Encoding ASCII
-    Write-Host "       memory=${gb}GB in $config; applies after: wsl --shutdown"
+    Set-Content -Path $config -Value @('[experimental]', 'autoMemoryReclaim=gradual') -Encoding ASCII
+    Write-Host "       written to $config; applies after: wsl --shutdown"
 }
 
 Write-Host ""

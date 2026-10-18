@@ -7,8 +7,8 @@ Wi-Fi, printing, Defender and Windows Update keep working: no services are remov
 Windows Search goes off only on a hard disk. For Linux, use WSL 2.
 
 Double-click it (it asks for administrator rights), read the `[ OK ]` / `[SKIP]` lines, then
-restart Windows. The settings at the top of the file control Windows Search, the power plan
-and the WSL memory cap. Same style as the small-VM script in guacamole-session-tools.
+restart Windows. The settings at the top of the file control Windows Search and the power
+plan. Same style as the small-VM script in guacamole-session-tools.
 
 ## Why Windows here and not Linux
 
@@ -61,6 +61,14 @@ Windows 10 22H2 support ended in October 2025 for consumers, and the consumer Ex
 Security Updates year ended in October 2026. Windows 11 lists Haswell CPUs as unsupported,
 but it installs with the hardware check bypassed (for example a Rufus-made USB) and runs
 fine. Fewer preinstalled apps also means less background load, whichever version you use.
+
+## WSL 2 memory
+
+No memory cap: compiling in Linux and gaming in Windows happen at different times, and a cap
+would only slow the Linux side. WSL 2's own default limit (half of RAM) still applies. What
+does hurt a game is Linux keeping its file cache after a build, so `.wslconfig` gets
+`autoMemoryReclaim=gradual`, which returns idle cache to Windows over a few minutes. Before a
+game, `wsl --shutdown` frees all of it at once.
 
 ## What the script does not do
 
