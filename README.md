@@ -1,7 +1,7 @@
 # xrdp-tune
 
-Fast RDP on a GPU-less budget VPS: Ubuntu 24.04, KDE Plasma 5 (X11), xrdp 0.10 built from
-source with the GFX pipeline. Tuned for the Windows App client on Android (RFX Progressive,
+Fast RDP on a GPU-less budget VPS: Ubuntu 24.04, KDE Plasma 5 or Xfce 4.18 (X11), xrdp 0.10
+built from source with the GFX pipeline. Tuned for the Windows App client on Android (RFX Progressive,
 no H.264 decode) and Windows mstsc.
 
 ## Why this exists
@@ -89,11 +89,38 @@ sudo ./install.sh someuser
 sudo ./install.sh -y         # every default, no questions
 ```
 
-`install.sh` asks what to install (desktop, each tuning script, zram size and compressor,
-disk swapfile size), with recommended sizes worked out from the machine's RAM: zram = RAM
+`install.sh` asks what to install (desktop: KDE Plasma or Xfce, each tuning script, zram size
+and compressor, disk swapfile size), with recommended sizes worked out from the machine's RAM: zram = RAM
 (max 16 GB), swapfile = RAM / 2 (2 to 8 GB). It shows a review and starts only after `y`.
 The chosen scripts run with `NO_RESTART=1`, swap first, then xrdp starts once.
 Takes a while: it builds xrdp and xorgxrdp.
+
+## KDE Plasma or Xfce
+
+KDE Plasma is the default. Xfce is the lighter option: its core uses about 250 to 350 MB less
+memory than Plasma's (about 470 MB PSS measured on the 11 GB box). Both get compositing and
+animations off, so menus, popups and typing feel about the same: a keypress goes from xrdp
+to Xorg to the app and never touches the window manager.
+
+The one real latency gain is window drag. `xrdp-lean.sh` turns on xfwm4's wireframe move and
+resize (`box_move`, `box_resize`): a drag only changes a thin outline per frame, then the
+window redraws once on release. A live drag repaints the window and everything it uncovers on
+every frame, which is the heaviest load RDP gets without a GPU.
+
+What Xfce gives up: KRunner, Klipper's history (xfce4-clipman is simpler), Plasma's window
+rules and shortcut editor. It is installed with `--no-install-recommends`, because the
+recommends pull in lightdm, cups, pulseaudio, gnome-keyring, ibus and screen lockers.
+Without gnome-keyring, Brave keeps cookies in its basic store (fixed key, not the OS keyring);
+fine for a single-user VPS with a password manager such as Bitwarden.
+
+The other scripts read the desktop from `~/.xsession` (`startxfce4` means Xfce), or from
+`XRDP_DESKTOP=kde|xfce`, which `install.sh` passes on. Xfce settings are written straight into
+`~/.config/xfce4/xfconf/` by `xfconf-set.py`, since `xfconf-query` needs a running session;
+run the scripts while logged out of RDP, or they stop with a message.
+
+**Switching an existing box:** Brave chooses its cookie and password encryption from the
+desktop (kwallet under KDE, libsecret or basic under Xfce). Moving a profile across desktops
+logs you out of every site. Start Brave with `--password-store=kwallet5` in both to keep it.
 
 ## Security: RDP over SSH
 
@@ -123,13 +150,14 @@ password on every connect.
 | Script | What it does | Restarts xrdp |
 |---|---|---|
 | `install.sh` | Asks, reviews, then runs the chosen scripts below, one start at the end | yes |
-| `xrdp-ugly.sh` | Looks for latency: Breeze Dark flat theme, solid black wallpaper, no window borders/shadows, fonts antialiased with hintfull and subpixel rgb, plain 24 px cursor, no clock seconds, notifications off | never |
-| `xrdp-setup.sh` | Plasma + apps, xrdp 0.10.6.1 + xorgxrdp 0.10.5 from source, GFX (32 bpp), 4 MB TCP buffers, H.264 bitrate cap, startwm.sh, `.xsession`, KDE compositing/animations off | yes, unless `NO_RESTART=1` |
+| `xrdp-ugly.sh` | Looks for latency: Breeze Dark (KDE) or Adwaita-dark (Xfce) flat theme, solid black wallpaper, no window borders/shadows, fonts antialiased with hintfull and subpixel rgb, plain 24 px cursor, no clock seconds, notifications off | never |
+| `xrdp-setup.sh` | Plasma or Xfce (`XRDP_DESKTOP=xfce`) + apps, xrdp 0.10.6.1 + xorgxrdp 0.10.5 from source, GFX (32 bpp), 4 MB TCP buffers, H.264 bitrate cap, startwm.sh, `.xsession`, compositing/animations off | yes, unless `NO_RESTART=1` |
 | `xrdp-snappy.sh` | BBR, `tcp_notsent_lowat`, no slow start after idle, 60 fps frame interval | yes, unless `NO_RESTART=1` |
-| `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off | never |
-| `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next Plasma login | never |
+| `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off, or on Xfce wireframe window move/resize, no cursor blink, screen lockers hidden | never |
+| `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next desktop login | never |
 | `xrdp-brave.sh` | Brave from Brave's apt repo. Policies: hardware acceleration off, memory saver, no background mode, autoplay and site notifications off, Rewards/VPN/Tor/News/Talk/Leo/Playlist and telemetry off. Launcher flags: smooth scrolling off, reduced motion. Applies at the next Brave start | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
+| `xfconf-set.py` | Helper for the Xfce branches: sets xfconf properties by editing the channel XML, no session needed | - |
 | `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists; never resizes or removes one | never |
 | `rust-tools/rust-tools.sh` | ripgrep, fd, bat, zoxide (apt) plus Starship and Zellij (latest release), zoxide and Starship hooks in `~/.bashrc`. Not part of `install.sh`; see [rust-tools/README.md](rust-tools/README.md) | never |
 
@@ -139,7 +167,7 @@ they edit (`*.pre-snappy`, `*.pre-lean`, `*.pre-ugly`, `/root/xrdp-etc-backup-<t
 ## After a manual restart
 
 Restarting xrdp also restarts xrdp-sesman. Running X sessions become orphaned and a
-reconnect starts a second Plasma session that hangs on a black screen. **Log out of RDP
+reconnect starts a second desktop session that hangs on a black screen. **Log out of RDP
 before any restart.** Cleanup if it happens: `pgrep -a Xorg`, kill it, reconnect.
 
 ```
@@ -149,7 +177,7 @@ sudo systemctl daemon-reload && sudo systemctl restart xrdp
 ## Checks
 
 ```
-ps -o pid,ni,comm -C xrdp,Xorg,xrdp-chansrv,plasmashell   # nice -10 / -5 / -5 / 0
+ps -o pid,ni,comm -C xrdp,Xorg,xrdp-chansrv,plasmashell   # nice -10 / -5 / -5 / 0 (Xfce: xfwm4)
 tc qdisc show dev eth0 | head -1                            # fq
 sysctl net.ipv4.tcp_congestion_control                      # bbr
 sudo grep -aiE 'gfx|rfx|h\.?264|codec' /var/log/xrdp.log | tail   # needs LogLevel=INFO
@@ -177,9 +205,10 @@ sudo grep -aiE 'gfx|rfx|h\.?264|codec' /var/log/xrdp.log | tail   # needs LogLev
 
 `xrdp-flameshot.sh` binds **Ctrl+Alt+Shift+P** to `flameshot gui`. Drag a region, press Enter
 (or Ctrl+C) to copy, then paste on the tablet or straight into an AI chat in the session.
-The shortcut is stored as a Plasma "custom command" (`~/.local/share/applications/flameshot.desktop`
-plus a `[flameshot.desktop]` group in `~/.config/kglobalshortcutsrc`). Run the script while
-logged out of RDP; a running session rewrites that file on logout.
+On KDE the shortcut is stored as a Plasma "custom command" (`~/.local/share/applications/flameshot.desktop`
+plus a `[flameshot.desktop]` group in `~/.config/kglobalshortcutsrc`). On Xfce it is an
+application shortcut in `xfce4-keyboard-shortcuts.xml`, next to the default ones. Run the
+script while logged out of RDP; a running session rewrites that file on logout.
 
 ## Browser access (H.264)
 

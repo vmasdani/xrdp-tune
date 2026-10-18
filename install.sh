@@ -3,9 +3,9 @@
 # shows a review, and runs the chosen scripts only after a "y":
 #   xrdp-swapfile.sh   disk swapfile (overflow behind zram)
 #   xrdp-zram.sh       compressed swap in RAM (zram)
-#   xrdp-setup.sh      KDE Plasma X11 + xrdp/xorgxrdp 0.10 from source, GFX, TCP buffers (always)
+#   xrdp-setup.sh      KDE Plasma or Xfce (X11) + xrdp/xorgxrdp 0.10 from source, GFX, TCP buffers (always)
 #   xrdp-snappy.sh     BBR, notsent_lowat, 60 fps frame interval
-#   xrdp-lean.sh       channels, priority, fq, TLS, logging, KDE trims (frame interval 8 ms)
+#   xrdp-lean.sh       channels, priority, fq, TLS, logging, desktop trims (frame interval 8 ms)
 #   xrdp-ugly.sh       looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
 #   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
 #   xrdp-brave.sh      Brave browser, policies and flags for a GPU-less desktop
@@ -89,10 +89,15 @@ if [ -z "$DESKTOP_USER" ] || ! id "$DESKTOP_USER" >/dev/null 2>&1; then
   exit 1
 fi
 
-ask_pick DESKTOP "Desktop:" 1 "KDE Plasma 5, X11 (recommended)"
-DESKTOP=${DESKTOP% (recommended)}
+ask_pick DESKTOP "Desktop:" 1 "KDE Plasma 5, X11 (recommended)" \
+  "Xfce 4.18, X11 (lighter, wireframe window drag)"
+DESKTOP=${DESKTOP%% (*}
+case "$DESKTOP" in
+  Xfce*) XRDP_DESKTOP=xfce ;;
+  *)     XRDP_DESKTOP=kde ;;
+esac
 ask_yn DO_SNAPPY    "Network latency tuning: BBR, 60 fps (xrdp-snappy.sh, recommended)" y
-ask_yn DO_LEAN      "Lean tuning: priorities, fq, channels, KDE effects off (xrdp-lean.sh, recommended)" y
+ask_yn DO_LEAN      "Lean tuning: priorities, fq, channels, desktop effects off (xrdp-lean.sh, recommended)" y
 ask_yn DO_UGLY      "Flat dark look for latency (xrdp-ugly.sh, recommended)" y
 ask_yn DO_FLAMESHOT "Flameshot on Ctrl+Alt+Shift+P (xrdp-flameshot.sh, recommended)" y
 ask_yn DO_BRAVE     "Brave browser, tuned for no GPU (xrdp-brave.sh, recommended)" y
@@ -137,9 +142,12 @@ esac
 if [ "$DO_ZRAM" = n ] && [ "$DO_SWAP" = n ]; then
   echo "   Warning: no swap at all. A memory spike goes straight to the OOM killer."
 fi
-if [ "$RAM_MB" -lt 1800 ]; then
+if [ "$XRDP_DESKTOP" = kde ] && [ "$RAM_MB" -lt 1800 ]; then
   echo "   Warning: ${RAM_MB} MB RAM is too little for KDE Plasma (about 1.2 GB on its own)."
   echo "   Expect constant swapping even with zram. 2 GB is the minimum, 4 GB is comfortable."
+elif [ "$XRDP_DESKTOP" = xfce ] && [ "$RAM_MB" -lt 900 ]; then
+  echo "   Warning: ${RAM_MB} MB RAM is tight even for Xfce. Expect swapping once Brave runs."
+  echo "   2 GB is comfortable."
 fi
 echo "   Takes a while: it builds xrdp and xorgxrdp."
 echo
@@ -151,7 +159,7 @@ if [ "$GO" != y ]; then
   exit 0
 fi
 
-export NO_RESTART=1
+export NO_RESTART=1 XRDP_DESKTOP
 [ "$DO_SWAP" = y ]       && ./xrdp-swapfile.sh "$SWAP_GB"
 [ "$DO_ZRAM" = y ]       && ZRAM_SIZE=$ZRAM_MB ZRAM_ALGO=$ZRAM_ALGO ./xrdp-zram.sh
 ./xrdp-setup.sh "$DESKTOP_USER"

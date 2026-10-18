@@ -1,11 +1,11 @@
 #!/bin/bash
-# Squeeze the last bit of RDP latency out of a GPU-less VPS (xrdp 0.10, KDE Plasma 5 X11).
+# Squeeze the last bit of RDP latency out of a GPU-less VPS (xrdp 0.10, KDE Plasma 5 or Xfce, X11).
 # Run: sudo ./xrdp-lean.sh [desktop-user]
 #
 # This script does NOT restart xrdp. Kernel settings apply at once; xrdp.ini, sesman.ini,
 # the systemd drop-ins and startwm.sh apply after:
 #   log out of the RDP session, then: sudo systemctl daemon-reload && sudo systemctl restart xrdp
-# The KDE settings apply at the next Plasma login.
+# The desktop settings apply at the next desktop login (Xfce: run while logged out of RDP).
 #
 # Every edited file gets a .pre-lean backup (only on the first run).
 set -euo pipefail
@@ -21,6 +21,9 @@ if [ -z "$DESKTOP_USER" ] || ! id "$DESKTOP_USER" >/dev/null 2>&1; then
 fi
 USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 as_user() { sudo -u "$DESKTOP_USER" HOME="$USER_HOME" "$@"; }
+xfset() { as_user python3 -I - "$@" < "$(dirname "$0")/xfconf-set.py"; }
+# Desktop: XRDP_DESKTOP from install.sh, else whatever ~/.xsession starts.
+XRDP_DESKTOP=${XRDP_DESKTOP:-$(grep -qs startxfce4 "$USER_HOME/.xsession" && echo xfce || echo kde)}
 
 for f in xrdp.ini sesman.ini startwm.sh; do
   [ -e "/etc/xrdp/$f.pre-lean" ] || cp "/etc/xrdp/$f" "/etc/xrdp/$f.pre-lean"
@@ -38,7 +41,7 @@ sed -i -E '/^\[Channels\]/,/^\[/{
 echo "== 2. CPU priority: encoder (xrdp) and X server ahead of the desktop"
 # The RFX/H.264 encoder runs inside the xrdp connection process: nice -10.
 # sesman spawns Xorg and chansrv, which inherit its nice -5. startwm.sh then puts the
-# desktop back to nice 0 (a process may always raise its own niceness), so Plasma never
+# desktop back to nice 0 (a process may always raise its own niceness), so the desktop never
 # competes with the encoder or the X server at equal priority.
 mkdir -p /etc/systemd/system/xrdp.service.d /etc/systemd/system/xrdp-sesman.service.d
 printf '[Service]\nNice=-10\n' > /etc/systemd/system/xrdp.service.d/nice.conf
@@ -80,31 +83,48 @@ sed -i -E 's/^tcp_send_buffer_bytes=.*/tcp_send_buffer_bytes=524288/' /etc/xrdp/
 echo "== 8. Frame interval 16 ms -> 8 ms (experimental: ~120 fps cap for 120 Hz phones)"
 sed -i -E 's/^(h264|rfx)_frame_interval=.*/\1_frame_interval=8/' /etc/xrdp/xrdp.ini
 
-echo "== 11. KDE: remaining KWin effects off, no window shadows, no tooltips/notification animation"
-kw() { as_user kwriteconfig5 "$@"; }
-for e in dialogparent dimscreen frozenapp fullscreen login logout maximize morphingpopups windowaperture; do
-  kw --file kwinrc --group Plugins --key "kwin4_effect_${e}Enabled" false
-done
-for e in highlightwindow kscreen presentwindows screenedge zoom; do
-  kw --file kwinrc --group Plugins --key "${e}Enabled" false
-done
-kw --file breezerc --group Common --key ShadowSize ShadowNone
-kw --file breezerc --group Common --key OutlineCloseButton false
-kw --file breezerc --group Style --key AnimationsEnabled false
-kw --file kdeglobals --group KDE --key AnimationDurationFactor 0
-kw --file kdeglobals --group KDE --key CursorBlinkRate 0
-kw --file plasmarc --group PlasmaToolTips --key Delay -- -1   # -- or -1 is read as an option
-kw --file krunnerrc --group General --key FreeFloating false
-kw --file klaunchrc --group BusyCursorSettings --key Bouncing false
-kw --file klaunchrc --group FeedbackStyle --key BusyCursor false
-kw --file klaunchrc --group FeedbackStyle --key TaskbarButton false
+if [ "$XRDP_DESKTOP" = xfce ]; then
+  echo "== 11. Xfce: wireframe move/resize, no compositor, no cursor blink or animations, no lockers"
+  # A wireframe drag changes only an outline per frame, then one redraw on release; a live drag
+  # repaints the window and everything it uncovers every frame, the heaviest load RDP gets.
+  xfset xfwm4 /general/box_move bool true /general/box_resize bool true \
+    /general/use_compositing bool false
+  xfset xsettings /Net/CursorBlink bool false /Gtk/EnableAnimations bool false
+  # Screen lockers and the power manager only cost redraws on a VPS (and the xrdp session is
+  # already behind a login). Not installed without recommends; hidden here in case they are.
+  as_user mkdir -p "$USER_HOME/.config/autostart"
+  for a in light-locker xfce4-power-manager xfce4-screensaver xscreensaver; do
+    printf '[Desktop Entry]\nType=Application\nName=%s\nHidden=true\n' "$a" \
+      | as_user tee "$USER_HOME/.config/autostart/$a.desktop" >/dev/null
+  done
+else
+  echo "== 11. KDE: remaining KWin effects off, no window shadows, no tooltips/notification animation"
+  kw() { as_user kwriteconfig5 "$@"; }
+  for e in dialogparent dimscreen frozenapp fullscreen login logout maximize morphingpopups windowaperture; do
+    kw --file kwinrc --group Plugins --key "kwin4_effect_${e}Enabled" false
+  done
+  for e in highlightwindow kscreen presentwindows screenedge zoom; do
+    kw --file kwinrc --group Plugins --key "${e}Enabled" false
+  done
+  kw --file breezerc --group Common --key ShadowSize ShadowNone
+  kw --file breezerc --group Common --key OutlineCloseButton false
+  kw --file breezerc --group Style --key AnimationsEnabled false
+  kw --file kdeglobals --group KDE --key AnimationDurationFactor 0
+  kw --file kdeglobals --group KDE --key CursorBlinkRate 0
+  kw --file plasmarc --group PlasmaToolTips --key Delay -- -1   # -- or -1 is read as an option
+  kw --file krunnerrc --group General --key FreeFloating false
+  kw --file klaunchrc --group BusyCursorSettings --key Bouncing false
+  kw --file klaunchrc --group FeedbackStyle --key BusyCursor false
+  kw --file klaunchrc --group FeedbackStyle --key TaskbarButton false
+fi
 
 echo
-echo "Kernel and KDE settings written. xrdp changes are staged, NOT active yet."
+echo "Kernel and desktop settings written. xrdp changes are staged, NOT active yet."
 echo "Next, from an SSH shell, after logging out of the RDP session:"
 echo "  sudo systemctl daemon-reload && sudo systemctl restart xrdp"
 echo "Then reconnect and verify:"
-echo "  ps -o pid,ni,comm -C xrdp,Xorg,xrdp-chansrv,plasmashell     # expect -10 / -5 / -5 / 0"
+[ "$XRDP_DESKTOP" = xfce ] && SHELL_PROC=xfwm4 || SHELL_PROC=plasmashell
+echo "  ps -o pid,ni,comm -C xrdp,Xorg,xrdp-chansrv,$SHELL_PROC     # expect -10 / -5 / -5 / 0"
 echo "  tc qdisc show dev eth0 | head -1                              # expect fq"
 echo "Rollback: restore /etc/xrdp/*.pre-lean, delete the nice.conf drop-ins and"
 echo "  /etc/sysctl.d/92-xrdp-lean.conf, then daemon-reload + restart xrdp."

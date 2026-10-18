@@ -181,3 +181,24 @@ Colour depth is not touched: below 32 bpp GFX turns off, which is slower.
     until 9999, sounds off. Each popup or tick is a frame.
 Manual: client resolution 1024x640 (biggest win), Chrome reduce motion + force dark,
 VS Code minimap off. Rollback in the script's last lines.
+
+Xfce option (2026-10-18)
+========================
+install.sh offers Xfce 4.18 next to KDE Plasma (XRDP_DESKTOP=xfce for the scripts on their own;
+otherwise they read ~/.xsession). Untested on a fresh box at the time of writing.
+  - Why: window drag. xfwm4 box_move/box_resize draw a wireframe, so a drag sends an outline
+    per frame and one redraw on release. Typing and menus gain nothing measurable: input goes
+    xrdp -> Xorg -> app without the window manager. Memory: Plasma core ~470 MB PSS measured,
+    Xfce core expected 250-350 MB lower.
+  - xfce4 installed with --no-install-recommends: the recommends add lightdm, cups,
+    pulseaudio, gnome-keyring, ibus, light-locker, gnome-screensaver, Unity indicators.
+    Ubuntu's xsettings defaults name Greybird and elementary-xfce (recommends), so setup sets
+    Adwaita for both. xfce4-clipman stands in for Klipper.
+  - xfconf-query needs xfconfd on a session bus, so xfconf-set.py writes the per-channel XML
+    in ~/.config/xfce4/xfconf directly. xfconfd layers it over /etc/xdg at login. It refuses
+    to run while xfconfd is up (xfconfd would save its in-memory copy over the edit).
+  - Shortcuts: Xfce uses /commands/custom only when custom/override=true, and then ignores
+    /commands/default. The Flameshot binding copies default into custom first.
+  - Backdrop key: /backdrop/screen0/monitorrdp0/workspace0 (xorgxrdp output rdp0).
+  - Brave: no flag forced. It picks kwallet under KDE and libsecret/basic under Xfce; only a
+    profile moved between desktops loses its cookies (--password-store=kwallet5 keeps them).

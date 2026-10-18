@@ -1,37 +1,54 @@
 #!/bin/bash
-# Fresh Ubuntu 24.04 server: install KDE Plasma (X11) + xrdp 0.10 built from source,
+# Fresh Ubuntu 24.04 server: install KDE Plasma (X11) or Xfce + xrdp 0.10 built from source,
 # with the tuning that made RDP smooth on a GPU-less VPS.
 #
 # Usage: sudo ./xrdp-setup.sh            (desktop user = the user who ran sudo)
 #        sudo ./xrdp-setup.sh someuser
+#        XRDP_DESKTOP=xfce sudo -E ./xrdp-setup.sh   (Xfce instead of KDE Plasma, the default)
 #        NO_RESTART=1 sudo -E ./xrdp-setup.sh   (install.sh uses this; restart later)
 #
 # Result: xrdp 0.10.x + xorgxrdp 0.10.x, GFX pipeline (client negotiates RFX Progressive),
-# KDE compositing and animations off, larger TCP buffers.
+# desktop compositing and animations off, larger TCP buffers.
 # Restarting xrdp kills active RDP sessions.
 set -euo pipefail
 
 XRDP_VER=v0.10.6.1
 XORGXRDP_VER=v0.10.5
 SRC=/usr/local/src/xrdp-build
+HERE=$(cd "$(dirname "$0")" && pwd)   # before the build steps cd away
 DESKTOP_USER=${1:-${SUDO_USER:-}}
+XRDP_DESKTOP=${XRDP_DESKTOP:-kde}
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run as root (sudo)." >&2
   exit 1
 fi
+case "$XRDP_DESKTOP" in
+  kde|xfce) ;;
+  *) echo "XRDP_DESKTOP must be kde or xfce." >&2; exit 1 ;;
+esac
 if [ -z "$DESKTOP_USER" ] || ! id "$DESKTOP_USER" >/dev/null 2>&1; then
   echo "Desktop user not found. Pass it as the first argument." >&2
   exit 1
 fi
 USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 
-echo "== Installing KDE Plasma (minimal, X11) and apps"
 apt-get update
+if [ "$XRDP_DESKTOP" = xfce ]; then
+  echo "== Installing Xfce (X11) and apps"
+  # No recommends: they pull in lightdm (a display manager starting its own Xorg), cups,
+  # pulseaudio (clashes with pipewire), gnome-keyring, ibus, light-locker and screensavers.
+  # xfce4-clipman keeps the clipboard alive after the copying app exits (Klipper's job on KDE).
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    xfce4 xfce4-terminal mousepad xfce4-clipman
+else
+  echo "== Installing KDE Plasma (minimal, X11) and apps"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    plasma-desktop plasma-workspace kwin-x11 kde-config-screenlocker maliit-keyboard \
+    konsole dolphin kate kde-spectacle
+fi
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  plasma-desktop plasma-workspace kwin-x11 dbus-x11 kde-config-screenlocker maliit-keyboard \
-  konsole dolphin kate kde-spectacle \
-  pipewire-module-xrdp \
+  dbus-x11 pipewire-module-xrdp \
   xserver-xorg-core x11-xserver-utils
 # xserver-xorg-core: /usr/lib/xorg/Xorg itself (plus xkbcomp). xorgxrdp from source only adds
 # modules to it; without it sesman fails with "X server could not be started".
@@ -108,7 +125,13 @@ sed -i -E '/^\[x264\.default\]/,/^\[/{
 # (allowed_users=console) refuses; use the real server like the distro package.
 sed -i 's|^param=Xorg$|param=/usr/lib/xorg/Xorg|' /etc/xrdp/sesman.ini
 
-cat > /etc/xrdp/startwm.sh <<'EOF'
+if [ "$XRDP_DESKTOP" = xfce ]; then
+  SESSION_DESKTOP=xfce CURRENT_DESKTOP=XFCE START_DESKTOP=startxfce4
+else
+  SESSION_DESKTOP=KDE CURRENT_DESKTOP=KDE START_DESKTOP=startplasma-x11
+fi
+
+cat > /etc/xrdp/startwm.sh <<EOF
 #!/bin/sh
 
 if [ -r /etc/profile ]; then
@@ -119,8 +142,8 @@ if [ -r ~/.profile ]; then
     . ~/.profile
 fi
 
-export XDG_SESSION_DESKTOP=KDE
-export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=$SESSION_DESKTOP
+export XDG_CURRENT_DESKTOP=$CURRENT_DESKTOP
 export XDG_SESSION_TYPE=x11
 
 exec /etc/X11/Xsession
@@ -131,25 +154,33 @@ echo "== Raising kernel socket buffer limits"
 printf 'net.core.wmem_max=8388608\nnet.core.rmem_max=8388608\n' > /etc/sysctl.d/90-xrdp.conf
 sysctl -p /etc/sysctl.d/90-xrdp.conf
 
-echo "== Configuring KDE session for $DESKTOP_USER"
-cat > "$USER_HOME/.xsession" <<'EOF'
+echo "== Configuring $XRDP_DESKTOP session for $DESKTOP_USER"
+cat > "$USER_HOME/.xsession" <<EOF
 #!/bin/sh
 
-export XDG_SESSION_DESKTOP=KDE
-export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=$SESSION_DESKTOP
+export XDG_CURRENT_DESKTOP=$CURRENT_DESKTOP
 export XDG_SESSION_TYPE=x11
 
-exec startplasma-x11
+exec $START_DESKTOP
 EOF
 chown "$DESKTOP_USER:" "$USER_HOME/.xsession"
 chmod 755 "$USER_HOME/.xsession"
 
-# Without a GPU, KWin composites in software (llvmpipe): extra CPU and extra redraws over RDP.
+# Without a GPU, the compositor runs in software (llvmpipe): extra CPU and extra redraws over RDP.
 as_user() { sudo -u "$DESKTOP_USER" HOME="$USER_HOME" "$@"; }
-as_user kwriteconfig5 --file kwinrc --group Compositing --key Enabled false
-as_user kwriteconfig5 --file kwinrc --group Compositing --key AnimationSpeed 0
-as_user kwriteconfig5 --file kwinrc --group Compositing --key LatencyPolicy Low
-as_user kwriteconfig5 --file kdeglobals --group KDE --key AnimationDurationFactor 0
+if [ "$XRDP_DESKTOP" = xfce ]; then
+  xfset() { as_user python3 -I - "$@" < "$HERE/xfconf-set.py"; }
+  xfset xfwm4 /general/use_compositing bool false
+  # Ubuntu's defaults name Greybird and elementary-xfce, which are recommends (not installed).
+  # Adwaita ships with GTK, so widgets and panel icons render instead of falling back to blanks.
+  xfset xsettings /Net/ThemeName string Adwaita /Net/IconThemeName string Adwaita
+else
+  as_user kwriteconfig5 --file kwinrc --group Compositing --key Enabled false
+  as_user kwriteconfig5 --file kwinrc --group Compositing --key AnimationSpeed 0
+  as_user kwriteconfig5 --file kwinrc --group Compositing --key LatencyPolicy Low
+  as_user kwriteconfig5 --file kdeglobals --group KDE --key AnimationDurationFactor 0
+fi
 
 systemctl daemon-reload
 systemctl enable xrdp xrdp-sesman
@@ -166,7 +197,7 @@ echo
 xrdp --version | head -1
 echo
 echo "Done. Connect with an RDP client to port 3389 and pick the Xorg session."
-echo "If a Plasma session was already running for $DESKTOP_USER, log out and back in"
+echo "If a desktop session was already running for $DESKTOP_USER, log out and back in"
 echo "so the compositing/animation settings apply."
 echo "Check the codec after connecting:"
 echo "  sudo grep -aiE 'gfx|rfx|h\\.?264|codec' /var/log/xrdp.log | tail -20"
