@@ -19,7 +19,7 @@ The two halves of a key go to different places:
 
 1. In the Bitwarden web vault or desktop app, choose **New** > **SSH key**. Bitwarden
    generates an Ed25519 key pair and stores the private key, public key and fingerprint in
-   the item. Name it after the box, for example `ssh biker@vmi`.
+   the item. Name it after the box, for example `ssh myserver`.
 2. To keep a key you already have instead, paste its private key into a new SSH key item
    (the import fills in the public key). Use the SSH key item type, not a secure note: a
    note can drop the final newline or add Windows line endings, and ssh then fails to load
@@ -34,7 +34,7 @@ the permissions:
 
 ```
 mkdir -p ~/.ssh
-echo 'ssh-ed25519 AAAA...paste-the-public-key... ssh biker@vmi' >> ~/.ssh/authorized_keys
+echo 'ssh-ed25519 AAAA...paste-the-public-key... ssh myserver' >> ~/.ssh/authorized_keys
 chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
 ```
 
