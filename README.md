@@ -145,7 +145,8 @@ Windows App on Android, through Termux:
    goes through the SSH tunnel to xrdp on the VPS.
 
 SSH key login (`ssh-keygen` in Termux, `ssh-copy-id username@host`) avoids typing the
-password on every connect.
+password on every connect. To turn off SSH password login entirely, with the key kept in
+Bitwarden, see [ssh-keys-only.md](ssh-keys-only.md).
 
 ## Scripts
 
