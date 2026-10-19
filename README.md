@@ -158,6 +158,7 @@ password on every connect.
 | `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off, or on Xfce wireframe window move/resize, no cursor blink, screen lockers hidden | never |
 | `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next desktop login | never |
 | `xrdp-brave.sh` | Brave from Brave's apt repo. Policies: hardware acceleration off, memory saver, no background mode, autoplay and site notifications off, Rewards/VPN/Tor/News/Talk/Leo/Playlist and telemetry off. Launcher flags: smooth scrolling off, reduced motion. Applies at the next Brave start | never |
+| `xrdp-litexl.sh` | Lite XL 2.1.8 (official portable addons build, SHA-256 pinned) in `~/.local/lite-xl`, menu entry, `lite-xl` on the PATH. A plugin turns off animations and cursor blink. See [Editor](#editor-lite-xl) | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
 | `xfconf-set.py` | Helper for the Xfce branches: sets xfconf properties by editing the channel XML, no session needed | - |
 | `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists; never resizes or removes one | never |
@@ -211,6 +212,20 @@ On KDE the shortcut is stored as a Plasma "custom command" (`~/.local/share/appl
 plus a `[flameshot.desktop]` group in `~/.config/kglobalshortcutsrc`). On Xfce it is an
 application shortcut in `xfce4-keyboard-shortcuts.xml`, next to the default ones. Run the
 script while logged out of RDP; a running session rewrites that file on logout.
+
+## Editor: Lite XL
+
+`xrdp-litexl.sh` installs Lite XL, a VS Code-like editor without Electron: file tree
+(Ctrl+\\), Ctrl+P to open a file, Ctrl+Shift+P for commands, Ctrl+Shift+F to search the
+project, a dark theme, and syntax highlighting for 100+ languages from the addons build. It
+renders in software and redraws only the regions that change, so it is cheap over RDP. Zed
+and Lapce need a GPU (on this box they redraw every frame on the CPU), and VSCodium is the
+same Electron app as VS Code.
+
+The script's settings live in `~/.config/lite-xl/plugins/xrdp_tune.lua` (no animations, no
+cursor blink), so `~/.config/lite-xl/init.lua` stays yours. Put
+`config.plugins.xrdp_tune = false` there to drop them. Change the theme with Ctrl+Shift+P,
+"ui: settings", Colors.
 
 ## Browser access (H.264)
 

@@ -9,6 +9,7 @@
 #   xrdp-ugly.sh       looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
 #   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
 #   xrdp-brave.sh      Brave browser, policies and flags for a GPU-less desktop
+#   xrdp-litexl.sh     Lite XL editor (VS Code-like, light), no animations or cursor blink
 # then one xrdp start at the end. Swap comes first so the xrdp build has memory to spare.
 #
 # Usage: sudo ./install.sh [desktop-user]       ask, review, confirm
@@ -101,6 +102,7 @@ ask_yn DO_LEAN      "Lean tuning: priorities, fq, channels, desktop effects off 
 ask_yn DO_UGLY      "Flat dark look for latency (xrdp-ugly.sh, recommended)" y
 ask_yn DO_FLAMESHOT "Flameshot on Ctrl+Alt+Shift+P (xrdp-flameshot.sh, recommended)" y
 ask_yn DO_BRAVE     "Brave browser, tuned for no GPU (xrdp-brave.sh, recommended)" y
+ask_yn DO_LITEXL    "Lite XL editor, light VS Code-like (xrdp-litexl.sh, recommended)" y
 
 ask_yn DO_ZRAM "zram: compressed swap in RAM (recommended)" y
 if [ "$DO_ZRAM" = y ]; then
@@ -129,6 +131,7 @@ echo "   Lean           $(yn "$DO_LEAN")"
 echo "   Flat look      $(yn "$DO_UGLY")"
 echo "   Flameshot      $(yn "$DO_FLAMESHOT")"
 echo "   Brave          $(yn "$DO_BRAVE")"
+echo "   Lite XL        $(yn "$DO_LITEXL")"
 if [ "$DO_ZRAM" = y ]; then
   echo "   zram           yes, $ZRAM_MB MB, $ZRAM_ALGO"
 else
@@ -168,6 +171,7 @@ export NO_RESTART=1 XRDP_DESKTOP
 [ "$DO_UGLY" = y ]       && ./xrdp-ugly.sh "$DESKTOP_USER"
 [ "$DO_FLAMESHOT" = y ]  && ./xrdp-flameshot.sh "$DESKTOP_USER"
 [ "$DO_BRAVE" = y ]      && ./xrdp-brave.sh "$DESKTOP_USER"
+[ "$DO_LITEXL" = y ]     && ./xrdp-litexl.sh "$DESKTOP_USER"
 
 echo "== Starting xrdp"
 systemctl daemon-reload
