@@ -4,6 +4,41 @@ Turn off SSH password login so only keys get in, the way AWS boxes work. The pri
 lives in Bitwarden, so a new device only needs the vault to log in. Nothing in this guide
 needs a `.pem` file: a key is a key whatever the file is called.
 
+## TL;DR
+
+Keep one SSH session open until the last step passes.
+
+1. Bitwarden: **New** > **SSH key**, name it `ssh myserver`. Turn on two-step login.
+2. Server: add the item's **Public key** line to `~/.ssh/authorized_keys`.
+
+   ```
+   mkdir -p ~/.ssh && chmod 700 ~/.ssh
+   echo 'ssh-ed25519 AAAA... ssh myserver' >> ~/.ssh/authorized_keys
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+
+3. Client:
+   - **Desktop:** Bitwarden desktop > Settings > **Enable SSH agent**, then
+     `export SSH_AUTH_SOCK=~/.bitwarden-ssh-agent.sock`.
+   - **Termux:** paste the **Private key** into `~/.ssh/id_ed25519`, then `chmod 600` it.
+4. From a new terminal, `ssh username@host` must log in without the user password.
+5. Server: turn passwords off.
+
+   ```
+   printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n' |
+     sudo tee /etc/ssh/sshd_config.d/00-keys-only.conf >/dev/null
+   sudo sshd -t && sudo systemctl reload ssh
+   ```
+
+6. Check that passwords are refused:
+   `ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no username@host` must
+   fail with `Permission denied (publickey)`.
+
+Undo: `sudo rm /etc/ssh/sshd_config.d/00-keys-only.conf && sudo systemctl reload ssh`.
+The details and the pitfalls are below.
+
+## Why two halves
+
 The two halves of a key go to different places:
 
 | Half | Where it lives |
