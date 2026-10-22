@@ -47,7 +47,7 @@ StartupNotify=false
 Type=Application
 X-KDE-GlobalAccel-CommandShortcut=true
 EOF
-  kw() { as_user kwriteconfig5 --file kglobalshortcutsrc --group flameshot.desktop "$@"; }
+  kw() { as_user "$(command -v kwriteconfig6 || echo kwriteconfig5)" --file kglobalshortcutsrc --group flameshot.desktop "$@"; }
   kw --key _k_friendly_name "flameshot gui"
   kw --key _launch "Ctrl+Alt+Shift+P,none,flameshot gui"
 fi

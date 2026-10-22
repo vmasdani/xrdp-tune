@@ -1,16 +1,16 @@
 #!/bin/bash
-# One-shot install on a fresh Ubuntu 24.04 server without a GPU. Asks what to install,
+# One-shot install on a fresh Ubuntu 24.04 or 26.04 server without a GPU. Asks what to install,
 # shows a review, and runs the chosen scripts only after a "y":
 #   xrdp-swapfile.sh   disk swapfile (overflow behind zram)
 #   xrdp-zram.sh       compressed swap in RAM (zram)
-#   xrdp-setup.sh      KDE Plasma or Xfce (X11) + xrdp/xorgxrdp 0.10 from source, GFX, TCP buffers (always)
+#   xrdp-setup.sh      KDE Plasma or Xfce (X11) + xrdp/xorgxrdp 0.10 (apt on 26.04, source on 24.04), GFX, TCP buffers (always)
 #   xrdp-snappy.sh     BBR, notsent_lowat, 60 fps frame interval
 #   xrdp-lean.sh       channels, priority, fq, TLS, logging, desktop trims (frame interval 8 ms)
 #   xrdp-ugly.sh       looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
 #   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
 #   xrdp-brave.sh      Brave browser, policies and flags for a GPU-less desktop
 #   xrdp-litexl.sh     Lite XL editor (VS Code-like, light), no animations or cursor blink
-# then one xrdp start at the end. Swap comes first so the xrdp build has memory to spare.
+# then one xrdp start at the end. Swap comes first so a source build of xrdp has memory to spare.
 #
 # Usage: sudo ./install.sh [desktop-user]       ask, review, confirm
 #        sudo ./install.sh -y [desktop-user]    take every default, no questions
@@ -90,8 +90,8 @@ if [ -z "$DESKTOP_USER" ] || ! id "$DESKTOP_USER" >/dev/null 2>&1; then
   exit 1
 fi
 
-ask_pick DESKTOP "Desktop:" 1 "KDE Plasma 5, X11 (recommended)" \
-  "Xfce 4.18, X11 (lighter, wireframe window drag)"
+ask_pick DESKTOP "Desktop:" 1 "KDE Plasma, X11 (recommended)" \
+  "Xfce, X11 (lighter, wireframe window drag)"
 DESKTOP=${DESKTOP%% (*}
 case "$DESKTOP" in
   Xfce*) XRDP_DESKTOP=xfce ;;
@@ -112,8 +112,22 @@ if [ "$DO_ZRAM" = y ]; then
 fi
 
 if [ -n "$DISK_SWAP" ]; then
+  # The existing swap is never touched; an extra swapfile can go next to it.
+  # Recommended extra = RAM / 2 minus what is already there; none when that is enough.
+  DISK_SWAP_MB=$(awk 'NR > 1 && $1 !~ /^\/dev\/zram/ {s += $3} END {printf "%d", s / 1024}' /proc/swaps)
+  REC_ADD_GB=$(( REC_SWAP_GB - (DISK_SWAP_MB + 512) / 1024 ))
   echo "Disk swap: already active ($DISK_SWAP), kept as is."
+  if [ "$REC_ADD_GB" -ge 1 ]; then
+    ask_yn ADD_SWAP "   Add an extra swapfile next to it (recommended, total below RAM / 2)" y
+  else
+    REC_ADD_GB=2
+    ask_yn ADD_SWAP "   Add an extra swapfile next to it (not needed, already RAM / 2 or more)" n
+  fi
   DO_SWAP=keep
+  if [ "$ADD_SWAP" = y ]; then
+    DO_SWAP=add
+    ask_num SWAP_GB "   Extra swapfile size in GB" "$REC_ADD_GB"
+  fi
 else
   ask_yn DO_SWAP "Disk swapfile as overflow (recommended)" y
   if [ "$DO_SWAP" = y ]; then
@@ -125,7 +139,7 @@ yn() { [ "$1" = y ] && echo yes || echo no; }
 echo
 echo "== Review"
 echo "   Desktop user   $DESKTOP_USER"
-echo "   Desktop        $DESKTOP + xrdp 0.10 built from source"
+echo "   Desktop        $DESKTOP + xrdp 0.10 (Ubuntu package on 26.04+, else built from source)"
 echo "   Snappy         $(yn "$DO_SNAPPY")"
 echo "   Lean           $(yn "$DO_LEAN")"
 echo "   Flat look      $(yn "$DO_UGLY")"
@@ -139,6 +153,7 @@ else
 fi
 case "$DO_SWAP" in
   keep) echo "   Disk swap      keep existing ($DISK_SWAP)" ;;
+  add)  echo "   Disk swap      keep existing ($DISK_SWAP) + extra $SWAP_GB GB swapfile" ;;
   y)    echo "   Disk swap      yes, /swapfile $SWAP_GB GB" ;;
   n)    echo "   Disk swap      no" ;;
 esac
@@ -152,7 +167,7 @@ elif [ "$XRDP_DESKTOP" = xfce ] && [ "$RAM_MB" -lt 900 ]; then
   echo "   Warning: ${RAM_MB} MB RAM is tight even for Xfce. Expect swapping once Brave runs."
   echo "   2 GB is comfortable."
 fi
-echo "   Takes a while: it builds xrdp and xorgxrdp."
+echo "   On 24.04 this takes a while: it builds xrdp and xorgxrdp."
 echo
 
 ask_yn GO "Proceed?" n
@@ -164,6 +179,7 @@ fi
 
 export NO_RESTART=1 XRDP_DESKTOP
 [ "$DO_SWAP" = y ]       && ./xrdp-swapfile.sh "$SWAP_GB"
+[ "$DO_SWAP" = add ]     && ./xrdp-swapfile.sh --add "$SWAP_GB"
 [ "$DO_ZRAM" = y ]       && ZRAM_SIZE=$ZRAM_MB ZRAM_ALGO=$ZRAM_ALGO ./xrdp-zram.sh
 ./xrdp-setup.sh "$DESKTOP_USER"
 [ "$DO_SNAPPY" = y ]     && ./xrdp-snappy.sh

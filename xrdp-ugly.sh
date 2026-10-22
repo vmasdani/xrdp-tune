@@ -17,7 +17,7 @@ if [ -z "$DESKTOP_USER" ] || ! id "$DESKTOP_USER" >/dev/null 2>&1; then
 fi
 USER_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 as_user() { sudo -u "$DESKTOP_USER" HOME="$USER_HOME" "$@"; }
-kw() { as_user kwriteconfig5 "$@"; }
+kw() { as_user "$(command -v kwriteconfig6 || echo kwriteconfig5)" "$@"; }   # 6 on Plasma 6
 xfset() { as_user python3 -I - "$@" < "$(dirname "$0")/xfconf-set.py"; }
 # Desktop: XRDP_DESKTOP from install.sh, else whatever ~/.xsession starts.
 XRDP_DESKTOP=${XRDP_DESKTOP:-$(grep -qs startxfce4 "$USER_HOME/.xsession" && echo xfce || echo kde)}

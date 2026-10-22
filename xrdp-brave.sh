@@ -78,7 +78,7 @@ for f in brave-browser.desktop com.brave.Browser.desktop; do
     | as_user tee "$APPS/$f" >/dev/null
 done
 # Plasma launches from its sycoca cache, which still holds the old Exec line until rebuilt.
-as_user kbuildsycoca5 >/dev/null 2>&1 || true
+as_user "$(command -v kbuildsycoca6 || echo kbuildsycoca5)" >/dev/null 2>&1 || true
 
 echo
 brave-browser --version || true

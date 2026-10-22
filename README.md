@@ -1,7 +1,7 @@
 # xrdp-tune
 
-Fast RDP on a GPU-less budget VPS: Ubuntu 24.04, KDE Plasma 5 or Xfce 4.18 (X11), xrdp 0.10
-built from source with the GFX pipeline. Tuned for the Windows App client on Android (RFX Progressive,
+Fast RDP on a GPU-less budget VPS: Ubuntu 24.04 or 26.04, KDE Plasma or Xfce (X11), xrdp 0.10
+with the GFX pipeline (Ubuntu package on 26.04, built from source on 24.04). Tuned for the Windows App client on Android (RFX Progressive,
 no H.264 decode) and Windows mstsc.
 
 ## Why this exists
@@ -91,9 +91,14 @@ sudo ./install.sh -y         # every default, no questions
 
 `install.sh` asks what to install (desktop: KDE Plasma or Xfce, each tuning script, zram size
 and compressor, disk swapfile size), with recommended sizes worked out from the machine's RAM: zram = RAM
-(max 16 GB), swapfile = RAM / 2 (2 to 8 GB). It shows a review and starts only after `y`.
+(max 16 GB), swapfile = RAM / 2 (2 to 8 GB). Many VPS images already come with a swap; it is
+detected and kept, and the installer offers an extra swapfile next to it (recommended only
+when the existing one is below RAM / 2). It shows a review and starts only after `y`.
 The chosen scripts run with `NO_RESTART=1`, swap first, then xrdp starts once.
-Takes a while: it builds xrdp and xorgxrdp.
+On 24.04 it takes a while: Ubuntu only packages xrdp 0.9 there, so it builds xrdp and
+xorgxrdp 0.10. On 26.04 it installs Ubuntu's xrdp 0.10.1 and xorgxrdp 0.10.2 with apt. That
+build has no x264, so every client gets RFX; set `XRDP_BUILD=1` to build from source anyway
+(newer xrdp, H.264 for clients such as Windows mstsc).
 
 ## KDE Plasma or Xfce
 
@@ -154,7 +159,7 @@ Bitwarden, see [ssh-keys-only.md](ssh-keys-only.md).
 |---|---|---|
 | `install.sh` | Asks, reviews, then runs the chosen scripts below, one start at the end | yes |
 | `xrdp-ugly.sh` | Looks for latency: Breeze Dark (KDE) or Adwaita-dark (Xfce) flat theme, solid black wallpaper, no window borders/shadows, fonts antialiased with hintfull and subpixel rgb, plain 24 px cursor, no clock seconds, notifications off | never |
-| `xrdp-setup.sh` | Plasma or Xfce (`XRDP_DESKTOP=xfce`) + apps, xrdp 0.10.6.1 + xorgxrdp 0.10.5 from source, GFX (32 bpp), 4 MB TCP buffers, H.264 bitrate cap, startwm.sh, `.xsession`, compositing/animations off | yes, unless `NO_RESTART=1` |
+| `xrdp-setup.sh` | Plasma or Xfce (`XRDP_DESKTOP=xfce`) + apps, xrdp 0.10 from apt (26.04+) or xrdp 0.10.6.1 + xorgxrdp 0.10.5 from source (24.04, or `XRDP_BUILD=1`), GFX (32 bpp), 4 MB TCP buffers, H.264 bitrate cap, startwm.sh, `.xsession`, compositing/animations off | yes, unless `NO_RESTART=1` |
 | `xrdp-snappy.sh` | BBR, `tcp_notsent_lowat`, no slow start after idle, 60 fps frame interval | yes, unless `NO_RESTART=1` |
 | `xrdp-lean.sh` | Channels down to clipboard + drdynvc, xrdp nice -10 / Xorg -5 / desktop 0, fq qdisc, AES-128-GCM first, LogLevel WARNING, no DPMS, 512 KB send buffer (experimental), 8 ms frame interval (experimental), remaining KDE effects and shadows off, or on Xfce wireframe window move/resize, no cursor blink, screen lockers hidden | never |
 | `xrdp-flameshot.sh` | Installs Flameshot, binds Ctrl+Alt+Shift+P to `flameshot gui` (region select, Enter copies to the clipboard, which reaches the client). Applies at the next desktop login | never |
@@ -162,7 +167,7 @@ Bitwarden, see [ssh-keys-only.md](ssh-keys-only.md).
 | `xrdp-litexl.sh` | Lite XL 2.1.8 (official portable addons build, SHA-256 pinned) in `~/.local/lite-xl`, menu entry, `lite-xl` on the PATH. A plugin turns off animations and cursor blink. See [Editor](#editor-lite-xl) | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
 | `xfconf-set.py` | Helper for the Xfce branches: sets xfconf properties by editing the channel XML, no session needed | - |
-| `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists; never resizes or removes one | never |
+| `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists, unless `--add` (extra file: `/swapfile2`, `/swapfile3`, ...); never resizes or removes one | never |
 | `rust-tools/rust-tools.sh` | ripgrep, fd, bat, zoxide (apt) plus Starship and Zellij (latest release), zoxide and Starship hooks in `~/.bashrc`. Not part of `install.sh`; see [rust-tools/README.md](rust-tools/README.md) | never |
 
 Each script can run on its own on an existing box. All are idempotent and back up the files

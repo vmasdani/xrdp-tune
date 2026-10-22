@@ -99,7 +99,7 @@ if [ "$XRDP_DESKTOP" = xfce ]; then
   done
 else
   echo "== 11. KDE: remaining KWin effects off, no window shadows, no tooltips/notification animation"
-  kw() { as_user kwriteconfig5 "$@"; }
+  kw() { as_user "$(command -v kwriteconfig6 || echo kwriteconfig5)" "$@"; }   # 6 on Plasma 6
   for e in dialogparent dimscreen frozenapp fullscreen login logout maximize morphingpopups windowaperture; do
     kw --file kwinrc --group Plugins --key "kwin4_effect_${e}Enabled" false
   done

@@ -59,7 +59,7 @@ Categories=Development;TextEditor;
 MimeType=text/plain;
 EOF
 # Plasma launches from its sycoca cache, which only learns new entries when rebuilt.
-as_user kbuildsycoca5 >/dev/null 2>&1 || true
+as_user "$(command -v kbuildsycoca6 || echo kbuildsycoca5)" >/dev/null 2>&1 || true
 
 echo "== RDP settings: no animations, no cursor blink (each is a stream of redrawn frames)"
 # A plugin rather than init.lua, so ~/.config/lite-xl/init.lua stays the user's own.

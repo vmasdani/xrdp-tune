@@ -1,11 +1,13 @@
 #!/bin/bash
-# Fresh Ubuntu 24.04 server: install KDE Plasma (X11) or Xfce + xrdp 0.10 built from source,
-# with the tuning that made RDP smooth on a GPU-less VPS.
+# Fresh Ubuntu 24.04 or 26.04 server: install KDE Plasma (X11) or Xfce + xrdp 0.10, with the
+# tuning that made RDP smooth on a GPU-less VPS. xrdp comes from apt where Ubuntu packages 0.10
+# (26.04 and later) and is built from source otherwise (24.04).
 #
 # Usage: sudo ./xrdp-setup.sh            (desktop user = the user who ran sudo)
 #        sudo ./xrdp-setup.sh someuser
 #        XRDP_DESKTOP=xfce sudo -E ./xrdp-setup.sh   (Xfce instead of KDE Plasma, the default)
 #        NO_RESTART=1 sudo -E ./xrdp-setup.sh   (install.sh uses this; restart later)
+#        XRDP_BUILD=1 sudo -E ./xrdp-setup.sh   (build xrdp from source even when apt has 0.10)
 #
 # Result: xrdp 0.10.x + xorgxrdp 0.10.x, GFX pipeline (client negotiates RFX Progressive),
 # desktop compositing and animations off, larger TCP buffers.
@@ -43,59 +45,73 @@ if [ "$XRDP_DESKTOP" = xfce ]; then
     xfce4 xfce4-terminal mousepad xfce4-clipman
 else
   echo "== Installing KDE Plasma (minimal, X11) and apps"
+  # Plasma 6 (Ubuntu 26.04) moves startplasma-x11 into plasma-session-x11.
+  KDE_X11=kwin-x11
+  if apt-cache show plasma-session-x11 >/dev/null 2>&1; then KDE_X11="$KDE_X11 plasma-session-x11"; fi
+  # shellcheck disable=SC2086
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    plasma-desktop plasma-workspace kwin-x11 kde-config-screenlocker maliit-keyboard \
+    plasma-desktop plasma-workspace $KDE_X11 kde-config-screenlocker maliit-keyboard \
     konsole dolphin kate kde-spectacle
 fi
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
   dbus-x11 pipewire-module-xrdp \
   xserver-xorg-core x11-xserver-utils
-# xserver-xorg-core: /usr/lib/xorg/Xorg itself (plus xkbcomp). xorgxrdp from source only adds
-# modules to it; without it sesman fails with "X server could not be started".
+# xserver-xorg-core: /usr/lib/xorg/Xorg itself (plus xkbcomp). xorgxrdp only adds modules
+# to it; without it sesman fails with "X server could not be started".
 
-echo "== Installing xrdp build dependencies"
-apt-get install -y git build-essential autoconf automake libtool pkg-config nasm \
-  libssl-dev libpam0g-dev libx11-dev libxfixes-dev libxrandr-dev libxkbfile-dev \
-  libjpeg-dev libfuse3-dev libopus-dev libmp3lame-dev libx264-dev libpixman-1-dev \
-  xserver-xorg-dev libepoxy-dev libgbm-dev libdrm-dev openssl
+# Ubuntu 26.04 and later package xrdp/xorgxrdp 0.10 (GFX included), so apt is enough there.
+# Ubuntu 24.04 packages 0.9 (no GFX), so 0.10 is built from source. XRDP_BUILD=1 forces the
+# source build on any release: newer xrdp, plus H.264 (the distro build has no x264).
+XRDP_CANDIDATE=$(apt-cache policy xrdp | awk '/Candidate:/ {print $2}')
+if [ "${XRDP_BUILD:-0}" != 1 ] && [ -n "$XRDP_CANDIDATE" ] && [ "$XRDP_CANDIDATE" != "(none)" ] &&
+   dpkg --compare-versions "$XRDP_CANDIDATE" ge 0.10; then
+  echo "== Installing xrdp $XRDP_CANDIDATE and xorgxrdp from the Ubuntu archive"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y xrdp xorgxrdp
+else
+  echo "== Installing xrdp build dependencies"
+  apt-get install -y git build-essential autoconf automake libtool pkg-config nasm \
+    libssl-dev libpam0g-dev libx11-dev libxfixes-dev libxrandr-dev libxkbfile-dev \
+    libjpeg-dev libfuse3-dev libopus-dev libmp3lame-dev libx264-dev libpixman-1-dev \
+    xserver-xorg-dev libepoxy-dev libgbm-dev libdrm-dev openssl
 
-# The distro 0.9 packages conflict with the source build.
-if dpkg -l xrdp xorgxrdp 2>/dev/null | grep -q '^ii'; then
-  echo "== Removing distro xrdp/xorgxrdp packages"
-  systemctl stop xrdp xrdp-sesman 2>/dev/null || true
-  if [ -d /etc/xrdp ]; then
-    BAK=/root/xrdp-etc-backup-$(date +%Y%m%d-%H%M%S)
-    cp -a /etc/xrdp "$BAK"
-    echo "   /etc/xrdp backed up to $BAK"
+  # The distro packages conflict with the source build.
+  if dpkg -l xrdp xorgxrdp 2>/dev/null | grep -q '^ii'; then
+    echo "== Removing distro xrdp/xorgxrdp packages"
+    systemctl stop xrdp xrdp-sesman 2>/dev/null || true
+    if [ -d /etc/xrdp ]; then
+      BAK=/root/xrdp-etc-backup-$(date +%Y%m%d-%H%M%S)
+      cp -a /etc/xrdp "$BAK"
+      echo "   /etc/xrdp backed up to $BAK"
+    fi
+    apt-get remove -y xrdp xorgxrdp
   fi
-  apt-get remove -y xrdp xorgxrdp
+
+  echo "== Fetching sources"
+  mkdir -p "$SRC"
+  cd "$SRC"
+  rm -rf xrdp xorgxrdp
+  git clone --depth 1 --recursive --branch "$XRDP_VER" https://github.com/neutrinolabs/xrdp.git
+  git clone --depth 1 --branch "$XORGXRDP_VER" https://github.com/neutrinolabs/xorgxrdp.git
+
+  echo "== Building and installing xrdp $XRDP_VER"
+  cd "$SRC/xrdp"
+  ./bootstrap
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
+    --enable-fuse --enable-jpeg --enable-opus --enable-mp3lame \
+    --enable-pixman --enable-x264
+  make -j"$(nproc)"
+  make install
+  ldconfig
+
+  # xorgxrdp's configure needs xrdp.pc and headers from xrdp >= 0.10.2,
+  # so it can only be built after the new xrdp is installed.
+  echo "== Building and installing xorgxrdp $XORGXRDP_VER"
+  cd "$SRC/xorgxrdp"
+  ./bootstrap
+  ./configure --prefix=/usr --sysconfdir=/etc
+  make -j"$(nproc)"
+  make install
 fi
-
-echo "== Fetching sources"
-mkdir -p "$SRC"
-cd "$SRC"
-rm -rf xrdp xorgxrdp
-git clone --depth 1 --recursive --branch "$XRDP_VER" https://github.com/neutrinolabs/xrdp.git
-git clone --depth 1 --branch "$XORGXRDP_VER" https://github.com/neutrinolabs/xorgxrdp.git
-
-echo "== Building and installing xrdp $XRDP_VER"
-cd "$SRC/xrdp"
-./bootstrap
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
-  --enable-fuse --enable-jpeg --enable-opus --enable-mp3lame \
-  --enable-pixman --enable-x264
-make -j"$(nproc)"
-make install
-ldconfig
-
-# xorgxrdp's configure needs xrdp.pc and headers from xrdp >= 0.10.2,
-# so it can only be built after the new xrdp is installed.
-echo "== Building and installing xorgxrdp $XORGXRDP_VER"
-cd "$SRC/xorgxrdp"
-./bootstrap
-./configure --prefix=/usr --sysconfdir=/etc
-make -j"$(nproc)"
-make install
 
 echo "== Configuring xrdp"
 # TLS certificate, in case make install did not create one.
@@ -116,7 +132,8 @@ sed -i -E \
 # (e.g. Windows mstsc with hardware decode). Clients without it fall back to RFX, which has
 # no bitrate knob. The codec order stays H264, RFX so each client gets the best it can decode.
 # The lan/wan/... sections inherit from default, so the cap covers every connection type.
-sed -i -E '/^\[x264\.default\]/,/^\[/{
+# The Ubuntu package is built without x264, so there the cap is idle and every client gets RFX.
+[ -f /etc/xrdp/gfx.toml ] && sed -i -E '/^\[x264\.default\]/,/^\[/{
   s/^vbv_max_bitrate = .*/vbv_max_bitrate = 1_500/
   s/^vbv_buffer_size = .*/vbv_buffer_size = 150/
 }' /etc/xrdp/gfx.toml
@@ -176,10 +193,12 @@ if [ "$XRDP_DESKTOP" = xfce ]; then
   # Adwaita ships with GTK, so widgets and panel icons render instead of falling back to blanks.
   xfset xsettings /Net/ThemeName string Adwaita /Net/IconThemeName string Adwaita
 else
-  as_user kwriteconfig5 --file kwinrc --group Compositing --key Enabled false
-  as_user kwriteconfig5 --file kwinrc --group Compositing --key AnimationSpeed 0
-  as_user kwriteconfig5 --file kwinrc --group Compositing --key LatencyPolicy Low
-  as_user kwriteconfig5 --file kdeglobals --group KDE --key AnimationDurationFactor 0
+  # kwriteconfig6 on Plasma 6 (Ubuntu 26.04), kwriteconfig5 on Plasma 5 (Ubuntu 24.04).
+  KWC=$(command -v kwriteconfig6 || echo kwriteconfig5)
+  as_user "$KWC" --file kwinrc --group Compositing --key Enabled false
+  as_user "$KWC" --file kwinrc --group Compositing --key AnimationSpeed 0
+  as_user "$KWC" --file kwinrc --group Compositing --key LatencyPolicy Low
+  as_user "$KWC" --file kdeglobals --group KDE --key AnimationDurationFactor 0
 fi
 
 systemctl daemon-reload
