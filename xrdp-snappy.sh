@@ -28,7 +28,9 @@ sysctl -p /etc/sysctl.d/91-xrdp-latency.conf
 echo "== xrdp frame rate: RFX frame interval 32 ms -> 16 ms (about 30 -> 60 fps cap)"
 [ -e /etc/xrdp/xrdp.ini.pre-snappy ] || cp /etc/xrdp/xrdp.ini /etc/xrdp/xrdp.ini.pre-snappy
 sed -i -E 's/^rfx_frame_interval=.*/rfx_frame_interval=16/' /etc/xrdp/xrdp.ini
-grep -nE '^(h264|rfx|normal)_frame_interval' /etc/xrdp/xrdp.ini
+# Ubuntu's xrdp 0.10.1 package (26.04) has no frame interval keys: nothing to change there.
+grep -nE '^(h264|rfx|normal)_frame_interval' /etc/xrdp/xrdp.ini \
+  || echo "   No frame interval keys in this xrdp.ini, left as is"
 
 if [ "${NO_RESTART:-0}" = 1 ]; then
   echo "== NO_RESTART=1: xrdp not restarted, changes apply at the next restart"
