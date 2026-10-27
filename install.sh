@@ -9,6 +9,7 @@
 #   xrdp-ugly.sh       looks for latency: flat dark theme, 1-bit fonts, plain cursor, no notifications
 #   xrdp-flameshot.sh  flameshot screenshots on Ctrl+Alt+Shift+P
 #   xrdp-brave.sh      Brave browser, policies and flags for a GPU-less desktop
+#   xrdp-firefox.sh    or Firefox (.deb, not snap), policies for a GPU-less desktop
 #   xrdp-litexl.sh     Lite XL editor (VS Code-like, light), no animations or cursor blink
 # then one xrdp start at the end. Swap comes first so a source build of xrdp has memory to spare.
 #
@@ -101,7 +102,9 @@ ask_yn DO_SNAPPY    "Network latency tuning: BBR, 60 fps (xrdp-snappy.sh, recomm
 ask_yn DO_LEAN      "Lean tuning: priorities, fq, channels, desktop effects off (xrdp-lean.sh, recommended)" y
 ask_yn DO_UGLY      "Flat dark look for latency (xrdp-ugly.sh, recommended)" y
 ask_yn DO_FLAMESHOT "Flameshot on Ctrl+Alt+Shift+P (xrdp-flameshot.sh, recommended)" y
-ask_yn DO_BRAVE     "Brave browser, tuned for no GPU (xrdp-brave.sh, recommended)" y
+ask_pick BROWSER "Browser, tuned for no GPU:" 1 "Brave (xrdp-brave.sh, recommended)" \
+  "Firefox (xrdp-firefox.sh, .deb from Mozilla, not the snap)" "None"
+BROWSER=${BROWSER%% (*}
 ask_yn DO_LITEXL    "Lite XL editor, light VS Code-like (xrdp-litexl.sh, recommended)" y
 
 ask_yn DO_ZRAM "zram: compressed swap in RAM (recommended)" y
@@ -144,7 +147,7 @@ echo "   Snappy         $(yn "$DO_SNAPPY")"
 echo "   Lean           $(yn "$DO_LEAN")"
 echo "   Flat look      $(yn "$DO_UGLY")"
 echo "   Flameshot      $(yn "$DO_FLAMESHOT")"
-echo "   Brave          $(yn "$DO_BRAVE")"
+echo "   Browser        $BROWSER"
 echo "   Lite XL        $(yn "$DO_LITEXL")"
 if [ "$DO_ZRAM" = y ]; then
   echo "   zram           yes, $ZRAM_MB MB, $ZRAM_ALGO"
@@ -164,7 +167,7 @@ if [ "$XRDP_DESKTOP" = kde ] && [ "$RAM_MB" -lt 1800 ]; then
   echo "   Warning: ${RAM_MB} MB RAM is too little for KDE Plasma (about 1.2 GB on its own)."
   echo "   Expect constant swapping even with zram. 2 GB is the minimum, 4 GB is comfortable."
 elif [ "$XRDP_DESKTOP" = xfce ] && [ "$RAM_MB" -lt 900 ]; then
-  echo "   Warning: ${RAM_MB} MB RAM is tight even for Xfce. Expect swapping once Brave runs."
+  echo "   Warning: ${RAM_MB} MB RAM is tight even for Xfce. Expect swapping once a browser runs."
   echo "   2 GB is comfortable."
 fi
 echo "   On 24.04 this takes a while: it builds xrdp and xorgxrdp."
@@ -186,7 +189,8 @@ export NO_RESTART=1 XRDP_DESKTOP
 [ "$DO_LEAN" = y ]       && ./xrdp-lean.sh "$DESKTOP_USER"
 [ "$DO_UGLY" = y ]       && ./xrdp-ugly.sh "$DESKTOP_USER"
 [ "$DO_FLAMESHOT" = y ]  && ./xrdp-flameshot.sh "$DESKTOP_USER"
-[ "$DO_BRAVE" = y ]      && ./xrdp-brave.sh "$DESKTOP_USER"
+[ "$BROWSER" = Brave ]   && ./xrdp-brave.sh "$DESKTOP_USER"
+[ "$BROWSER" = Firefox ] && ./xrdp-firefox.sh
 [ "$DO_LITEXL" = y ]     && ./xrdp-litexl.sh "$DESKTOP_USER"
 
 echo "== Starting xrdp"
