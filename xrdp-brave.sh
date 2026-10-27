@@ -8,7 +8,7 @@
 #   memory saver on, balanced   inactive tabs are discarded, RAM goes to the desktop instead
 #   background mode off         no Brave processes left running after the last window closes
 #   autoplay off, site notifications blocked, no promotions: fewer surprise frames
-#   Rewards, VPN, Tor, News, Talk, Leo, local AI, Playlist off: no background services
+#   Rewards, Tor, News, Talk, Leo, local AI, Playlist off: no background services (VPN kept)
 #   P3A, stats ping, Web Discovery off: less background traffic
 # Flags (desktop-user's launcher, ~/.local/share/applications/brave-browser.desktop):
 #   --disable-smooth-scrolling       one frame per scroll step, not an animated glide
@@ -52,7 +52,6 @@ cat > /etc/brave/policies/managed/xrdp-tune.json <<'EOF'
   "DefaultNotificationsSetting": 2,
   "PromotionsEnabled": false,
   "BraveRewardsDisabled": true,
-  "BraveVPNDisabled": true,
   "TorDisabled": true,
   "BraveNewsDisabled": true,
   "BraveTalkDisabled": true,

@@ -17,6 +17,9 @@
 #   dom.ipc.processCount 2              fewer shared content processes (site isolation stays on)
 #   browser.sessionstore.interval 60 s  session written to disk every minute, not every 15 s
 #   browser.ml.* off                    no local AI models (link previews, tab grouping, chatbot)
+#   browser.ipProtection.enabled        built-in VPN shown. Off by default; Mozilla turns it on
+#                                       through a staged rollout, which a fresh .deb profile with
+#                                       this policy file did not get (the snap without it did)
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -96,7 +99,8 @@ cat > /etc/firefox/policies/policies.json <<'EOF'
       "dom.ipc.processCount": { "Value": 2, "Status": "default" },
       "browser.sessionstore.interval": { "Value": 60000, "Status": "default" },
       "browser.ml.enable": { "Value": false, "Status": "default" },
-      "browser.ml.chat.enabled": { "Value": false, "Status": "default" }
+      "browser.ml.chat.enabled": { "Value": false, "Status": "default" },
+      "browser.ipProtection.enabled": { "Value": true, "Status": "default" }
     }
   }
 }
