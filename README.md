@@ -150,8 +150,31 @@ Windows App on Android, through Termux:
    goes through the SSH tunnel to xrdp on the VPS.
 
 SSH key login (`ssh-keygen` in Termux, `ssh-copy-id username@host`) avoids typing the
-password on every connect. To turn off SSH password login entirely, with the key kept in
-Bitwarden, see [ssh-keys-only.md](ssh-keys-only.md).
+password on every connect.
+
+### Protecting SSH
+
+**Mandatory: key-only login, no passwords.** Turn SSH password login off, with the key kept in
+Bitwarden: [ssh-keys-only.md](ssh-keys-only.md). `xrdp-fail2ban.sh` warns when password
+login is still on. Check with `sudo sshd -T | grep -i authentication`.
+
+On top of that, pick one of these two:
+
+- **Cloudflare Tunnel (recommended).** `cloudflared` connects out to Cloudflare, so port 22
+  can be closed in the firewall and nothing on the VPS is open to the internet. The catch is
+  performance: every keystroke and frame goes through a Cloudflare data center, which adds
+  latency, and the tunnel drops and reconnects when that data center is degraded (seen as
+  `Application error 0x0 (remote)` or `timeout: no recent network activity` in
+  `journalctl -u cloudflared`). A dropped connection ends the SSH session and the RDP tunnel
+  inside it. Check [cloudflarestatus.com](https://www.cloudflarestatus.com) for the PoP the
+  log shows (`location=sin17` = Singapore).
+- **fail2ban, with port 22 open.** Direct SSH, so no extra hop and no Cloudflare outages.
+  `xrdp-fail2ban.sh` (offered by `install.sh`, default yes) bans an IP for 1 h after 5
+  failures in 10 min, doubling for repeat offenders up to a week. Do not whitelist a VPN exit
+  IP (NordVPN etc.) in `F2B_IGNOREIP`: strangers share it and it changes on reconnect.
+
+Not needed behind the tunnel: with port 22 closed, fail2ban has nothing to ban. Answer `n`
+to the fail2ban question in `install.sh` then.
 
 ## Scripts
 
@@ -168,6 +191,7 @@ Bitwarden, see [ssh-keys-only.md](ssh-keys-only.md).
 | `xrdp-litexl.sh` | Lite XL 2.1.8 (official portable addons build, SHA-256 pinned) in `~/.local/lite-xl`, menu entry, `lite-xl` on the PATH. A plugin turns off animations and cursor blink. See [Editor](#editor-lite-xl) | never |
 | `xrdp-zram.sh` | Compressed swap in RAM: zram0 (zstd, size = RAM, priority 100) via systemd-zram-generator, disk swapfile kept as overflow, zswap off, swappiness 180, page-cluster 0. Starts live, no reboot | never |
 | `xfconf-set.py` | Helper for the Xfce branches: sets xfconf properties by editing the channel XML, no session needed | - |
+| `xrdp-fail2ban.sh` | fail2ban for sshd (journal backend, `mode = aggressive`, ufw bans when ufw is active): 5 failures in 10 min = 1 h ban, doubling up to 1 week. Warns if SSH password login is still on. Config in `/etc/fail2ban/jail.d/xrdp-tune.local`. See [Protecting SSH](#protecting-ssh) | never |
 | `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists, unless `--add` (extra file: `/swapfile2`, `/swapfile3`, ...); never resizes or removes one | never |
 | `rust-tools/rust-tools.sh` | ripgrep, fd, bat, zoxide (apt) plus Starship and Zellij (latest release), zoxide and Starship hooks in `~/.bashrc`. Not part of `install.sh`; see [rust-tools/README.md](rust-tools/README.md) | never |
 

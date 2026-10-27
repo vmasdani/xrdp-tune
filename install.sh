@@ -11,6 +11,7 @@
 #   xrdp-brave.sh      Brave browser, policies and flags for a GPU-less desktop
 #   xrdp-firefox.sh    or Firefox (.deb, not snap), policies for a GPU-less desktop
 #   xrdp-litexl.sh     Lite XL editor (VS Code-like, light), no animations or cursor blink
+#   xrdp-fail2ban.sh   fail2ban: bans SSH brute force (skip behind a Cloudflare Tunnel)
 # then one xrdp start at the end. Swap comes first so a source build of xrdp has memory to spare.
 #
 # Usage: sudo ./install.sh [desktop-user]       ask, review, confirm
@@ -106,6 +107,7 @@ ask_pick BROWSER "Browser, tuned for no GPU:" 1 "Brave (xrdp-brave.sh, recommend
   "Firefox (xrdp-firefox.sh, .deb from Mozilla, not the snap)" "None"
 BROWSER=${BROWSER%% (*}
 ask_yn DO_LITEXL    "Lite XL editor, light VS Code-like (xrdp-litexl.sh, recommended)" y
+ask_yn DO_FAIL2BAN  "fail2ban: ban SSH brute force, n if SSH is only behind a Cloudflare Tunnel (xrdp-fail2ban.sh, recommended)" y
 
 ask_yn DO_ZRAM "zram: compressed swap in RAM (recommended)" y
 if [ "$DO_ZRAM" = y ]; then
@@ -149,6 +151,7 @@ echo "   Flat look      $(yn "$DO_UGLY")"
 echo "   Flameshot      $(yn "$DO_FLAMESHOT")"
 echo "   Browser        $BROWSER"
 echo "   Lite XL        $(yn "$DO_LITEXL")"
+echo "   fail2ban       $(yn "$DO_FAIL2BAN")"
 if [ "$DO_ZRAM" = y ]; then
   echo "   zram           yes, $ZRAM_MB MB, $ZRAM_ALGO"
 else
@@ -192,6 +195,7 @@ export NO_RESTART=1 XRDP_DESKTOP
 [ "$BROWSER" = Brave ]   && ./xrdp-brave.sh "$DESKTOP_USER"
 [ "$BROWSER" = Firefox ] && ./xrdp-firefox.sh
 [ "$DO_LITEXL" = y ]     && ./xrdp-litexl.sh "$DESKTOP_USER"
+[ "$DO_FAIL2BAN" = y ]   && ./xrdp-fail2ban.sh
 
 echo "== Starting xrdp"
 systemctl daemon-reload
@@ -206,6 +210,7 @@ cat <<EOF
 Do not expose xrdp (port 3389) directly to the internet on a public VPS.
 Tunnel RDP over SSH instead, which is more secure: block 3389 in the VPS
 firewall / provider security group and keep only SSH (22) open.
+SSH key-only login is mandatory (no passwords): see ssh-keys-only.md.
 
 Windows App on Android, through Termux:
   1. In Termux: pkg install openssh
