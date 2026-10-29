@@ -152,6 +152,16 @@ Windows App on Android, through Termux:
 SSH key login (`ssh-keygen` in Termux, `ssh-copy-id username@host`) avoids typing the
 password on every connect.
 
+**Frequent drops** (`Connection to ... closed by remote host`, `client_loop: send disconnect:
+Broken pipe`): use [termux-rdp-tunnel.sh](termux-rdp-tunnel.sh) instead of `rdp.sh`. It
+reconnects by itself, sends a keepalive every 15 s (`ServerAliveInterval=15`,
+`ServerAliveCountMax=4`), takes a Termux wake lock, and works direct (`CF=0`) or through the
+Cloudflare Tunnel (`CF=1`, the default). It listens on local port 3388, so add the PC in
+Windows App at `127.0.0.1:3388`. Set Termux to "Unrestricted" in Android's battery settings too.
+No `tunnel error` in `journalctl -u cloudflared` on the VPS at the time of a drop means it
+happened between the phone and Cloudflare, not on the VPS. Run once with `CF=0` to tell
+Cloudflare apart from the phone's network.
+
 ### Protecting SSH
 
 **Mandatory: key-only login, no passwords.** Turn SSH password login off, with the key kept in
@@ -167,7 +177,10 @@ On top of that, pick one of these two:
   `Application error 0x0 (remote)` or `timeout: no recent network activity` in
   `journalctl -u cloudflared`). A dropped connection ends the SSH session and the RDP tunnel
   inside it. Check [cloudflarestatus.com](https://www.cloudflarestatus.com) for the PoP the
-  log shows (`location=sin17` = Singapore).
+  log shows (`location=sin17` = Singapore). Keep `cloudflared` current on both ends (the VPS
+  log warns `Your version ... is outdated`; Termux: `pkg upgrade cloudflared`). If the VPS log
+  keeps showing QUIC `timeout: no recent network activity`, add `--protocol http2` to
+  `ExecStart` (`sudo systemctl edit --full cloudflared`): TCP instead of UDP.
 - **fail2ban, with port 22 open.** Direct SSH, so no extra hop and no Cloudflare outages.
   `xrdp-fail2ban.sh` (offered by `install.sh`, default yes) bans an IP for 1 h after 5
   failures in 10 min, doubling for repeat offenders up to a week. Do not whitelist a VPN exit
@@ -193,6 +206,7 @@ to the fail2ban question in `install.sh` then.
 | `xfconf-set.py` | Helper for the Xfce branches: sets xfconf properties by editing the channel XML, no session needed | - |
 | `xrdp-fail2ban.sh` | fail2ban for sshd (journal backend, `mode = aggressive`, ufw bans when ufw is active): 5 failures in 10 min = 1 h ban, doubling up to 1 week. Warns if SSH password login is still on. Config in `/etc/fail2ban/jail.d/xrdp-tune.local`. See [Protecting SSH](#protecting-ssh) | never |
 | `xrdp-swapfile.sh` | Disk swapfile, default RAM / 2 (2 to 8 GB), overflow behind zram. Skips if a disk swap already exists, unless `--add` (extra file: `/swapfile2`, `/swapfile3`, ...); never resizes or removes one | never |
+| `termux-rdp-tunnel.sh` | Runs on the phone (Termux), not the VPS: SSH tunnel to xrdp on local port 3388, reconnects by itself, 15 s keepalive, wake lock, direct or through Cloudflare Tunnel. See [Security: RDP over SSH](#security-rdp-over-ssh) | never |
 | `rust-tools/rust-tools.sh` | ripgrep, fd, bat, zoxide (apt) plus Starship and Zellij (latest release), zoxide and Starship hooks in `~/.bashrc`. Not part of `install.sh`; see [rust-tools/README.md](rust-tools/README.md) | never |
 
 Each script can run on its own on an existing box. All are idempotent and back up the files
