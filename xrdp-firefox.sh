@@ -10,6 +10,11 @@
 #   autoplay off, new notification requests blocked: fewer surprise frames
 #   blank home page and new tab, no Firefox Home feeds
 #   telemetry, studies, Pocket, recommendations, onboarding off: less background traffic
+#   Auto Tab Discard add-on installed from addons.mozilla.org (can be disabled, not removed):
+#     unloads tabs left idle on a timer, like Brave's memory saver. Firefox's own unloading
+#     only starts once RAM runs low, so idle tabs otherwise sit in zram.
+#     Defaults (3rdparty policy, the add-on's options page still overrides): discard after
+#     1 minute once more than 1 inactive tab is loaded (add-on defaults: 10 minutes, 6 tabs).
 # Preferences (set through the policy as defaults, so about:config can still change them):
 #   general.smoothScroll false          one frame per scroll step, not an animated glide
 #   ui.prefersReducedMotion 1           Firefox UI and sites that honour it drop animations
@@ -86,11 +91,22 @@ cat > /etc/firefox/policies/policies.json <<'EOF'
     "DisableFirefoxStudies": true,
     "DisablePocket": true,
     "DontCheckDefaultBrowser": true,
+    "ExtensionSettings": {
+      "{c2c003ee-bd69-42a2-b0e9-6f34222cb046}": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/auto-tab-discard/latest.xpi"
+      }
+    },
     "UserMessaging": {
       "ExtensionRecommendations": false,
       "FeatureRecommendations": false,
       "MoreFromMozilla": false,
       "SkipOnboarding": true
+    },
+    "3rdparty": {
+      "Extensions": {
+        "{c2c003ee-bd69-42a2-b0e9-6f34222cb046}": { "period": 60, "number": 1 }
+      }
     },
     "Preferences": {
       "general.smoothScroll": { "Value": false, "Status": "default" },
