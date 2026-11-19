@@ -1,9 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Termux (Android): RDP over SSH tunnel to the VPS, reconnects by itself when it drops.
 # Run on the phone, not the VPS: ./termux-rdp-tunnel.sh
-# Menu: 1 = connect, 2 = config (edit, or delete/reset). No key within 5 s = connect.
+# Menu: 1 = connect, 2 = config (edit, or delete/reset), 3 = Cloudflare Access login.
+# No key within 5 s = connect.
 # Settings are asked once and kept in $CONF; the menu prints the path.
-# Cloudflare Tunnel mode needs `pkg install cloudflared`.
+# Cloudflare Tunnel mode needs `pkg install cloudflared curl`.
+# If Cloudflare Access protects the hostname, it logs in once per session (one URL to open)
+# before the loop reconnects; with Access off it connects straight away.
 set -u
 
 CONF=${XDG_CONFIG_HOME:-$HOME/.config}/termux-rdp-tunnel.conf
@@ -73,6 +76,51 @@ config_menu() {
   done
 }
 
+# Access in front of the hostname answers plain HTTPS with a 302 to the team's login page.
+# Network error or Access off: false, so ssh runs as before.
+access_on() {
+  curl -s -o /dev/null -m 10 -w '%{redirect_url}' "https://$HOST" | grep -q '/cdn-cgi/access/login'
+}
+
+# Reuses the cached Access token while it is valid; prints one login URL only when it has expired.
+# Without this, every quick reconnect started a new cloudflared with a new URL, which
+# replaced the login page still open in the browser.
+access_login() {
+  [ "$CF" = 1 ] || return 0
+  access_on || return 0
+  echo "Cloudflare Access is on for $HOST, checking login..."
+  cloudflared access login --quiet --auto-close "https://$HOST" >/dev/null
+}
+
+# Menu 3: log in to Access without connecting, e.g. before a trip or when the token expired.
+# cloudflared has no logout; logging in again deletes the cached app token for this host
+# (~/.cloudflared/<host>-<aud>-token) so a fresh one is fetched.
+access_menu() {
+  local y
+  if [ -z "$HOST" ]; then
+    echo "No hostname yet, set it in Config first."
+    return
+  fi
+  if ! access_on; then
+    echo "Cloudflare Access is off for $HOST (or $HOST is unreachable). No login needed."
+    return
+  fi
+  if cloudflared access token -app="https://$HOST" >/dev/null 2>&1; then
+    echo "Access token for $HOST is valid."
+    read -r -p "Log in again anyway? [y/N] " y
+    [ "$y" = y ] || [ "$y" = Y ] || return
+    rm -f "$HOME/.cloudflared/$HOST"-*-token
+  else
+    echo "No valid Access token for $HOST."
+  fi
+  echo "Open the URL below and log in."
+  if cloudflared access login --quiet --auto-close "https://$HOST" >/dev/null; then
+    echo "Logged in. Connect will use this token until it expires."
+  else
+    echo "Access login failed." >&2
+  fi
+}
+
 connect() {
   if [ -z "$HOST" ] || [ -z "$SSH_USER" ]; then
     echo "No config yet."
@@ -99,11 +147,25 @@ connect() {
 
   echo "Tunnel: 127.0.0.1:$LOCAL_PORT -> $HOST:$TARGET_PORT. Ctrl+C to stop."
   # xrdp keeps the session, so the RDP client reconnects to the same desktop.
+  local delay=2 start rc
   while true; do
+    if ! access_login; then
+      echo "$(date +%T) Access login failed, retrying in 10 s. Ctrl+C to stop."
+      sleep 10
+      continue
+    fi
+    start=$SECONDS
     ssh "${opts[@]}" "$SSH_USER@$HOST"
     rc=$?
-    echo "$(date +%T) tunnel closed (exit $rc), reconnecting in 2 s. Ctrl+C to stop."
-    sleep 2
+    # Exit within 10 s (local port taken, login refused): wait longer each time, up to 60 s,
+    # instead of logging in to the VPS every 2 s. A tunnel that ran a while resets to 2 s.
+    if [ $((SECONDS - start)) -lt 10 ]; then
+      delay=$((delay * 2 > 60 ? 60 : delay * 2))
+    else
+      delay=2
+    fi
+    echo "$(date +%T) tunnel closed (exit $rc), reconnecting in $delay s. Ctrl+C to stop."
+    sleep "$delay"
   done
 }
 
@@ -111,10 +173,10 @@ load
 while true; do
   echo
   echo "Config file: $CONF"
-  echo "1) Connect  2) Config"
+  echo "1) Connect  2) Config  3) Access login"
   choice=1
   for i in 5 4 3 2 1; do
-    printf '\rChoose 1 or 2, connecting in %s s... ' "$i"
+    printf '\rChoose 1, 2 or 3, connecting in %s s... ' "$i"
     if read -r -s -n 1 -t 1 k; then choice=${k:-1}; break; fi
   done
   # Drop an Enter typed after the digit, or it answers the next prompt.
@@ -123,5 +185,6 @@ while true; do
   case $choice in
     1) connect ;;
     2) config_menu ;;
+    3) access_menu ;;
   esac
 done
